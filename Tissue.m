@@ -5,7 +5,6 @@ classdef Tissue
         centroids % Nx2 array of centroid locations
         vert_coords % Nvx2 array of vertex locations
         vertices % array of Vertex.m objects
-        regions % output of bwlabel, -1 = boundary, cells = 1,2,3...
         cells % hashmap of the CellModels contained by the tissue
         
         Xs % tissue pixel size
@@ -23,14 +22,13 @@ classdef Tissue
                 end
                 
                 tis.t = t;
-                tis.regions = regions;
                 tis.centroids = centroids;
                 tis.Xs = size(regions,1); tis.Ys = size(regions,2);
                 num_cells = max(unique(regions));
                 tis.cells = containers.Map('KeyType','int32','ValueType','any');
                 
                 % Get vertices that are not on border
-                [vert_coords,vx2Cell] = tis.validate_vertices(vert_coords);
+                [vert_coords,vx2Cell] = tis.validate_vertices(regions,vert_coords);
                 num_vertices = size(vert_coords,1);
                 vertices(1:num_vertices) = Vertex; % preallocate empties
                 for i = 1:num_vertices
@@ -46,7 +44,7 @@ classdef Tissue
                 
                 % Get cell-ownership of vertices via 8-connected neighbors of
                 % vertices and REGIONS map
-                [tis.vert_coords,vx2Cell] = tis.validate_vertices;
+                [tis.vert_coords,vx2Cell] = tis.validate_vertices(regions);
                 
                 % Instatiate valid cells
                 for i = 1:num_cells
@@ -200,9 +198,34 @@ classdef Tissue
         
         % ----- Vertex methods ------
         
-        function [vert_coords,vx2Cell] = validate_vertices(tis, vert_coords)
+        function tis = updateVertices( tis, new_vcoords)
             
-            if nargin < 2, vert_coords = tis.vert_coords; end
+            % @todo: change vertex, regions, vcoords, cells/centroids
+           
+            if size(new_vcoords,1) ~= numel(tis.vertices)
+                error('Size of new vertex list must match old vertices')
+            end
+            
+            for i = 1:numel(tis.vertices)
+                
+                % Move vertices in CellModels
+                v = tis.vertices(i);
+                cContainV = [tis.cellsContainingVertex(v).cellID];
+                for c = cContainV
+                    tis.cells( c ) = ...
+                        tis.cells( c ).moveVertex(v,new_vcoords);
+                end
+                
+                % Move Vertex
+                tis.vertices(i) = tis.cells.move(new_vcoords(i,:));
+                
+            end
+            
+        end
+        
+        function [vert_coords,vx2Cell] = validate_vertices(tis, regions, vert_coords)
+            
+            if nargin < 3, vert_coords = tis.vert_coords; end
             
             % Check if vx is beyond boundary, if so, chuck it and
             % move on
@@ -216,7 +239,7 @@ classdef Tissue
                 end
                 
                 % Extract 8 connected neighbors of this vertex
-                conn_pixels = tis.regions(x-1:x+1, y-1:y+1);
+                conn_pixels = regions(x-1:x+1, y-1:y+1);
                 neighbor_cells = unique(conn_pixels(conn_pixels > 0));
                 vx2Cell{i} = neighbor_cells;
                 
@@ -268,10 +291,12 @@ classdef Tissue
         
         %------ Visualization -----
         function I = draw(tis)
-            I = tis.regions;
+            I = zeros(tis.Xs,tis.Ys);
+            cellIDList = tis.cells.keys();
+            for i = 1:numel(cellIDList)
+                I = I + tis.cells(cellIDList{i}).draw;
+            end
         end
-        
-        
         
     end % Methods
     
