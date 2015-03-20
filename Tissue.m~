@@ -113,13 +113,11 @@ classdef Tissue
             
             switch opt
                 case 'purse sring'
+                    
+                    
                     % Connect the 'interfaces' of cells only
-                    conn = zeros(num_vertices);
-                    % @todo: vectorize this!
                     for i = 1:num_vertices
-                        for j = 1:num_vertices
-%                             conn(i,j) = 
-                        end
+                        
                     end
                     
                 otherwise
