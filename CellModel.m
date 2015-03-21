@@ -73,20 +73,36 @@ classdef CellModel
             flag = all(size(cellm.centroid) == [1,2]);
             % Make sure centroid given by parentTissue is also centroid of
             % the vertices
-            x = [cellm.vertices.x]; y = [cellm.vertices.y];
-            xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
-            cx = sum( ( x+xplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(x)/cellm.area;
-            cy = sum( ( y+yplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(y)/cellm.area;
-            flag = flag && abs(cx - cellm.centroid(1)) <= 1 && abs(cy - cellm.centroid(2)) <= 1;
-            if flag < 1, keyboard; end
+            ct = cellm.get_centroid;
+            flag = flag && abs(ct(1) - cellm.centroid(1)) <= 1;
+            flag = flag && abs(ct(2) - cellm.centroid(2)) <= 1;
+        end
+        
+        function flags = eq( this_cell, cellArray)
+            % Evaluates whether a cell is equal to any element of an array
+            % of cells
+            
+%             num_comp = numel(cellArray);
+            ct = cat(1,cellArray.centroid);
+            flags = any( this_cell.centroid(1) == ct(:,1) ); % cx
+            flags = flags & any( this_cell.centroid(2) == ct(:,2) ); % cy
+            
+%             vt = {cellArray.vertices};
+%             cellfun(@(x)
+            
         end
         
         % --------- Measurements ---------
         
         function a = get_anisotropy(cellm)
+            % @todo: Fix this situation!!!
             I = cellm.draw_smallMask;
             a = regionprops(I,'MajorAxisLength','MinorAxisLength');
-            a = a.MinorAxisLength/a.MajorAxisLength;
+            if numel(a) == 1
+                a = a.MinorAxisLength/a.MajorAxisLength;
+            else
+                a = NaN;
+            end
         end
         function a = get_area(cellm)
             x = [cellm.vertices.x]; y = [cellm.vertices.y];
@@ -98,8 +114,31 @@ classdef CellModel
             xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
             p = sum( sqrt((x-xplus1).^2 + (y-yplus1).^2) );
         end
+        function centroid = get_centroid(cellm)
+            % Calculate centroid from vertices (x,y)
+            x = [cellm.vertices.x]; y = [cellm.vertices.y];
+            xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
+            cx = sum( ( x+xplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(x)/cellm.area;
+            cy = sum( ( y+yplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(y)/cellm.area;
+            centroid = [cx, cy];
+        end
         
-        % --------- Vertex methods --------------
+        % ------- Cell set methods -------
+        
+        function cellm = updateCell(cellm)
+            % Updates the centroid to the current centroid, area,
+            % perimeter, anisotropy based on the new list of vertices.
+            % 
+            % USAGE: cell = updateCentroid(cell)
+            ct = cellm.get_centroid;
+            cellm.centroid = ct;
+            cellm.area = cellm.get_area;
+            cellm.perimeter = cellm.get_perimeter;
+            cellm.anisotropy = cellm.get_anisotropy;
+            
+        end
+        
+        % --------- Vertex set methods --------------
         
         function c_array = sort(c_array,centroid)
             % Sort an array based on clock-wise angle wrt CENTROID
@@ -122,6 +161,7 @@ classdef CellModel
             
             I = find(c.vertices == vert);
             c.vertices(I) = c.vertices(I).move( new_vcoord );
+            c = c.updateCell;
             
         end
         
@@ -129,18 +169,49 @@ classdef CellModel
         function cell = activateCell(cell)
             cell.isActive = 1;
         end
+        function cell = deactivateCell(cell)
+            cell.isActive = 0;
+        end
         
-        % ---------  Cell-cell connectivity --------
-        
-        function cells = get_neighbors(this_cell,n)
-            % GET_NEIGHBORS
-            %
-            % neighbors = this_cell.get_neighbors(n);
+        % ---------  Connectivity --------
+          
+        function flag = connected(cells,vertA,vertB)
+            % Returns if two vertices are connected by an edge in this
+            % cell. Calculates whether vertA and vertB are both in the
+            % cell, and also are next to each other in the sorted list.
+            % 
+            % USAGE: flag = cellm.connected(vertA, vertB)
             
-            if nargin < 2, n = 1; end % By default give first-order neighbors
-            tissue = this_cell.parent;
-            cells = tissue.get_neighbors(this_cell.cellID,n);
-        end % get_neighbors
+            flag = 0;
+            verts = cells.vertices;
+            % Check first that both are in cell
+            if all( verts ~= vertA) || all( verts ~= vertB)
+                return;
+            end
+            % Then check for vertex order
+            vertsplus1 = verts( [2:end 1] );
+            for i = 1:numel(verts)
+                if verts(i) == vertA && vertsplus1(i) == vertB
+                    flag = 1; return;
+                elseif verts(i) == vertB && vertsplus1(i) == vertA
+                    flag = 1; return;
+                end
+            end
+        end
+        
+        function neighborVerts = getConnectedVertices( cellm, v)
+            I = find(cellm.vertices == v);
+            if isempty(I), neighborVerts = []; return; end
+            
+            if I == 1
+                neighborVerts = [cellm.vertices(end), cellm.vertices(2)];
+            elseif I == numel( cellm.vertices )
+                neighborVerts = [cellm.vertices(end-1), cellm.vertices(1)];
+            else
+                neighborVerts = [cellm.vertices(I-1), cellm.vertices(I+1)];
+            end
+                
+        end
         
         % --------- Visualize ---------
         
@@ -165,14 +236,10 @@ classdef CellModel
             v = cellm.vertices;
             vx = [v.x]; vy = [v.y];
             vx = vx - min(vx) + 1; vy = vy - min(vy) + 1;
-            Xs = max(vx) + 1; Ys = max(vy) + 1;
+            Xs = round(max(vx)) + 1; Ys = round(max(vy)) + 1;
             image = poly2mask(vy,vx,Xs,Ys);
         end
         
     end % End methods
-    
-    methods (Static)
-        
-    end
     
 end

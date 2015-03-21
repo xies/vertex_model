@@ -54,12 +54,27 @@ classdef Vertex
                 round( mean([v_array.y]) ) );
         end
         
-        % ------- Comparator --------
+        % ------- Comparators --------
         function boolArr = eq(vertex_a,vertices)
             if numel(vertex_a) ~= 1 && numel(vertices) ~= 1
                 error('Can''t comapre two vectors of vertices.');
             end
             boolArr = [vertex_a.x] == [vertices.x] & [vertex_a.y] == [vertices.y];
+        end
+        
+        function boolArr = ne(vertex_a,vertices)
+            if numel(vertex_a) ~= 1 && numel(vertices) ~= 1
+                error('Can''t comapre two vectors of vertices.');
+            end
+            boolArr = [vertex_a.x] ~= [vertices.x] | [vertex_a.y] ~= [vertices.y];
+        end
+        
+        function boolArr = ismember( tobeCompared, list)
+            if isempty(list) || isempty(tobeCompared)
+                boolArr = []; return;
+            end
+            boolArr = ismember([tobeCompared.x], [list.x]);
+            boolArr = boolArr & ismember([tobeCompared.y], [list.y]);
         end
         
     end
