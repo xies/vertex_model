@@ -33,24 +33,11 @@ classdef CellModel
     %       deactivateCell -  set cell to not active
     %       updateCell - update all properties of CellModel to match
     %          current set of vertices
-    %       sort - sorts an array of cells in counter-clockwise w.r.t. an
-    %          input point
     %       
     %   --- Vertex set methods ---
-    %       moveVertex - moves a cell's vertices to new positions and
-    %          update cell (uses updateCell)
-    %
-    %   --- Connectivity ---
-    %       connected - sees if two vertices are edge-connected within an input
-    %          cell
-    %       getConnectedVertices - returns all edge-connected vertices
-    %          (should be 2 of them for all inputs) of an input vertex as
-    %          seen by a single cell
-    %
-    %   --- Visualize ---
-    %       draw - draws the outline of the cell in binary image
-    %       drawMask - draws the mask of cell in binary image
-    %       draw_smallMask - draws a small mask of cell
+    %       
+    %       
+    %       
     %
     % xies@mit.edu March 2015
     
@@ -188,8 +175,12 @@ classdef CellModel
         
         % ------- Cell set methods -------
         
-        function cell = activateCell(cell), cell.isActive = 1; end
-        function cell = deactivateCell(cell), cell.isActive = 0; end
+        function cell = activateCell(cell)
+            cell.isActive = 1;
+        end
+        function cell = deactivateCell(cell)
+            cell.isActive = 0;
+        end
         
         function cellm = updateCell(cellm)
             % Updates the centroid to the current centroid, area,
@@ -204,25 +195,10 @@ classdef CellModel
             
         end
         
-        function c_array = sort(c_array,point)
-            % Sort an array based on clock-wise angle wrt a POINT
-            % 
-            % USAGE: cells_array = sort(cell_array, point)
-            
-            ct = cat(1,c_array.centroid);
-            angles = atan2( ct(:,1)-point(2), ct(:,2)-point(1));
-            [~,I] = sort(angles);
-            c_array = c_array(I);
-            
-        end
-        
-        
         % --------- Vertex set methods --------------
         
         function c = moveVertex(c,vert,new_vcoord)
-            % Move vertex contained in input cell and the update all
-            % properties of the cell to match new vertices
-            %
+            % Move vertex contained in C
             % USAGE: c = c.moveVertex(vertex,new_vcoord);
             
             if ~any(c.vertices == vert)
@@ -281,7 +257,6 @@ classdef CellModel
         % --------- Visualize ---------
         
         function image = draw(cellm)
-            % Draws a binary outline of the cell
             vx = [cellm.vertices.x]; vy = [cellm.vertices.y];
             [xe,ye] = poly2edge(vx,vy);
             Xs = cellm.parentTissue.Xs;
