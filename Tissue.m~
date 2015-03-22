@@ -25,7 +25,6 @@ classdef Tissue
     %       activateCell - set certain cells to be active
     %       deactivateCell  - set certain cells to be not active
     %       deactivateBorder - set the outermost cells to be not active
-    %       getActivateCells - return CellModels that are active
     %
     %   --- Vertex-vertex connectivity ---
     %       connectVertices - sets the 'edges'/'interfaces' of the model
@@ -39,8 +38,25 @@ classdef Tissue
     %
     %   --- Cell-cell connectivity ---
     %       connected - whether two cells share one vertex
-    %       allNthOrderNeighbors - returns the filled-in 
-    %
+    %       allNthOrderNeighbors - returns the filled-in "halo" of
+    %              n-th order neighbors of input cell
+    %       neighborsOfCell - returns just the ring of n-th order neighbors
+    %              of input cell
+    %       numCellNeighbors - returns # of immediate neighbors of input
+    %              cell
+    % 
+    %   --- Cell/vertex handling ---
+    %       getActivateCells - return CellModels that are active
+    %       mergeVertices - merges vertices closer than a certain threshold
+    %          (use during constructing only)
+    %       validateVertices - gets rid of vertices beyond image, as well
+    %           as return which cell touches a vertex (only when
+    %           constructing)
+    %   
+    %   --- Visualize ---
+    %       draw - draw single tissue configuration in image
+    %       movie - returns a (Xs x Ys x T) image stack of tissue
+    %              configuration as a function of time
     %
     % xies@mit.edu March 2015
     properties
@@ -144,6 +160,11 @@ classdef Tissue
         
         function flag = isValid(tis)
             % Run self-consistency tests on current tissue state
+            % Checks the following:
+            %   1) vertices and vert_coords match and are ordered correctly
+            %   2) vertices and the unique set of cell-owned vertices also
+            %      match (not ordered)
+            
             flag = 1;
             % vertices and vert_coords match
             vx = [tis.vertices.x]; vy = [tis.vertices.y];
@@ -162,8 +183,12 @@ classdef Tissue
         % ------ Simulation methods ---------
         
         function tis = evolve( tis_old, new_vcoords)
-            % NOTA BENE: Since tis.cells is a reference object, it's
-            % dynamically updated, so be careful modifying its values
+            % EVOLVE - updates and returns a new copy of the old tissue
+            % configuration by moving all the vertex positions
+            %   NOTA BENE: the old .cells container is COPIED and not
+            %              direclty modified, since it's a reference object
+            %
+            % USAGE: new_tissue = old_tissue( new_vcoords);
             
             if size(new_vcoords,1) ~= numel(tis_old.vertices)
                 error('Size of new vertex list must match old vertices')
@@ -190,23 +215,27 @@ classdef Tissue
         
         function tis = activateCell( tis, cellIDs, varargin)
             % Set specified cells (IDs) to "active = 1"
-            % Usage: tissue = activateCell(tissue, [1 2 3]);
-            %        tissue = activateCell(tissue); Activates all cells
+            % Usage: tissue = activateCell(tissue); Activates all cells
+            %        tissue = activateCell(tissue, [1 2 3]); Activates the
+            %              specified subset of cells
             %        tissue = activateCell('random',fraction); Activates
-            %               random subset of cells
+            %              random subset of cells
             % AVAILABLE STRATEGIES:
-            %        'random' - randomly activate
-            %
+            %        'random' - randomly activate up to the given fraction
             
+            % If no arguments are given, then activate all cells
             if nargin < 2,
                 cellIDs = tis.cells.keys;
                 cellIDs = [cellIDs{:}];
+            % If more than 2 arguments are given, then need to set the
+            % cellIDs
             elseif nargin > 2
                 strategy = cellIDs;
                 switch strategy
                     case 'random'
                         % Randomly activate up to specified fraction
                         fraction = varargin{1};
+                        if fraction > 1, fraction = 1; warning('fraction > 1'); end
                         num_cells = tis.cells.length;
                         ones2Activate = false(1,num_cells);
                         ones2Activate( 1:round(fraction*num_cells) ) = true;
@@ -226,6 +255,8 @@ classdef Tissue
         
         function tis = deactivateCell(tis, cellIDs)
             % Deactivates cell(s)
+            % USAGE: tis = tis.deactivateCell; (default = all cells)
+            %        tis = tis.deactivateCell(IDs);
             if nargin < 2 % If no cells specified, deactivate all cells
                 cellIDs = tis.cells.keys;
                 cellIDs = [cellIDs{:}];
@@ -238,7 +269,9 @@ classdef Tissue
         
         function tis = deactivateBorder(tis,n)
             % Deactivates the border (up to n order) cells
-            % USAGE: tis = tis.deactivateBorder(1)
+            % USAGE: tis = tis.deactivateBorder(n)
+            %
+            % @todo: implement orders n > 1
             
             % By default only deactivate first layer
             if nargin < 2, n = 1; end
@@ -252,13 +285,26 @@ classdef Tissue
                 end
             end
             
-        end
+        end % deactivateBorder
             
         
         % ------ Verted-vertex connectivity ------
         
-        function tis = connectVertices(tis,opt, cells)
-            %
+        function tis = connectVertices(tis, opt, cells)
+            % Sets the vertex-vertex connectivity matrix according to the
+            % specified model configurations
+            % 
+            % USAGE: 
+            % tis = tis.connectVertices( opt )
+            % tis = tis.connectVertices( opt , cells )
+            %      (only connect a subset of cells)
+            % 
+            % INPUT: tis - the tissue to be connected
+            %        opt - 'purse string' / 'apical' / 'both'
+            %        cells - cellIDs (@todo: not implemented fully)
+            % 
+            % @todo: implement 'apical' and 'both'
+            
             vt = tis.vertices;
             num_vertices = numel(vt);
             if nargin < 3
@@ -280,15 +326,17 @@ classdef Tissue
                     end
                     
                 otherwise
-                    error('Unrecognized vertex connection.')
+                    error('Unrecognized vertex connection option.')
             end
             tis.connectivity = conn;
-        end
+        end % connectVertices
         
         % ------ Cell-Vertex connectivity -----
         
         function cellsThatTouch = cellsContainingVertex(tis,vert)
             % Return a list of CellModel that contains the current Vertex
+            %
+            % Usage: touchingCells = tis.cellsContainingVertex( vert )
             
             cells = tis.cells.values; cells = [cells{:}];
             verts = {cells.vertices};
@@ -299,7 +347,11 @@ classdef Tissue
         end % cellsContainingVertex
         
         function num_touch = numCellTouchingVertices(tis)
-            % Return a list of CellModel that contains the current Vertex
+            % Return the # of cells that are touching all vertices in the
+            % tissue.
+            %
+            % USAGE:
+            %  num_touching = numCellsTouchingVertices( tis )
             num_vertices = numel(tis.vertices);
             num_touch = zeros(1,num_vertices);
             % Go through all vertices
@@ -385,26 +437,28 @@ classdef Tissue
                 neighbors(i) = tis.cells(tmpCellSet(i));
             end
             
-        end %allNthOrderNeighbors
+        end % allNthOrderNeighbors
         
         function numNeigh = numCellNeighbors(tis, cellA)
             % Return the number of neighboring cells to input cell
             % USAGE: numNeighbor = tis.numCellNeighbors(input_cell)
             numNeigh = numel( tis.neighborsOfCell( cellA,1 ) );
-        end
+        end % numCellNeighbors
         
-        function flag = connected(~,cells_a, cells_b)
+        function flag = connected(~,cell_a, cell_b)
             % Basic function where if two cells share one vertex,
             % they're connected
+            % 
+            % Usage: flag = tis.connected( cells_a, cell_b)
+            
             flag = 0;
-            va = cells_a.vertices;
+            va = cell_a.vertices;
             for i = 1:numel(va)
-                flag = any(va(i) == cells_b.vertices);
+                flag = any(va(i) == cell_b.vertices);
                 if flag, return; end
             end
         end % connected
         
-        %         function flag = connecte
         
         % ----- Cell handling ------
         
@@ -415,12 +469,14 @@ classdef Tissue
             cells = tis.cells.values;
             cells = [cells{:}];
             cells = cells( [cells.isActive] > 0 );
-        end
+        end % getActiveCells
         
         % ----- Vertex handling ------
         
         function [vert_coords,vx2Cell] = validate_vertices(tis, regions, vert_coords)
-            
+            % Checks if vertices are not beyond image border, touching at 
+            % least one cell, and return which cells a vertex is touching
+            % Use only from Constructor!
             if nargin < 3, vert_coords = tis.vert_coords; end
             
             % Check if vx is beyond boundary, if so, chuck it and
@@ -451,7 +507,10 @@ classdef Tissue
         
         function [vertices,vcoords] = merge_vertices(~,vcoords,vertices,...
                 merge_threshold_in_px)
-            
+            % Merge vertices that are closer than the specified threshold
+            %
+            % USAGE:
+            % [vts, vcoords] = tis.merge_vertices( vcoords, vts
             num_vertices = size(vcoords);
             % Merge vertices which are super close to each other
             vertDist = squareform(pdist(vcoords));
@@ -483,10 +542,17 @@ classdef Tissue
         %------ Visualization -----
         
         function I = draw(tis,opt)
-            % Returns a binary image of the current tissue state
-            if nargin < 2
-                opt = 'none';
-            end
+            % Draws a single tissue in binary image. Can return just the
+            % outlines of cells, or also shade-in the active cells.
+            %
+            % USAGE: I = draw(tis);
+            %        I = draw(tis,'showActive');
+            %
+            % Cannot handle more than one tissue.
+            
+            if numel(tis) > 1, error('Can only handle single tissue; use tis.movie() to show movie.'); end
+            
+            if nargin < 2, opt = 'none'; end % by default only show outlines
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)
