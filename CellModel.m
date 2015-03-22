@@ -60,9 +60,9 @@ classdef CellModel
                 obj.contractility = 0;
                 obj.isActive = 0;
                 
-                if ~obj.isValid
-                    error('Cannot contruct cellModel, check inputs');
-                end
+%                 if ~obj.isValid
+%                     error('Cannot contruct cellModel, check inputs');
+%                 end
             end
             
         end % Constructor

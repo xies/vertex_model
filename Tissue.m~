@@ -25,6 +25,7 @@ classdef Tissue
     %       activateCell - set certain cells to be active
     %       deactivateCell  - set certain cells to be not active
     %       deactivateBorder - set the outermost cells to be not active
+    %       getActivateCells - return CellModels that are active
     %
     %   --- Vertex-vertex connectivity ---
     %       connectVertices - sets the 'edges'/'interfaces' of the model
@@ -38,25 +39,8 @@ classdef Tissue
     %
     %   --- Cell-cell connectivity ---
     %       connected - whether two cells share one vertex
-    %       allNthOrderNeighbors - returns the filled-in "halo" of
-    %              n-th order neighbors of input cell
-    %       neighborsOfCell - returns just the ring of n-th order neighbors
-    %              of input cell
-    %       numCellNeighbors - returns # of immediate neighbors of input
-    %              cell
-    % 
-    %   --- Cell/vertex handling ---
-    %       getActivateCells - return CellModels that are active
-    %       mergeVertices - merges vertices closer than a certain threshold
-    %          (use during constructing only)
-    %       validateVertices - gets rid of vertices beyond image, as well
-    %           as return which cell touches a vertex (only when
-    %           constructing)
-    %   
-    %   --- Visualize ---
-    %       draw - draw single tissue configuration in image
-    %       movie - returns a (Xs x Ys x T) image stack of tissue
-    %              configuration as a function of time
+    %       allNthOrderNeighbors - returns the filled-in 
+    %
     %
     % xies@mit.edu March 2015
     properties
@@ -401,28 +385,26 @@ classdef Tissue
                 neighbors(i) = tis.cells(tmpCellSet(i));
             end
             
-        end % allNthOrderNeighbors
+        end %allNthOrderNeighbors
         
         function numNeigh = numCellNeighbors(tis, cellA)
             % Return the number of neighboring cells to input cell
             % USAGE: numNeighbor = tis.numCellNeighbors(input_cell)
             numNeigh = numel( tis.neighborsOfCell( cellA,1 ) );
-        end % numCellNeighbors
+        end
         
-        function flag = connected(~,cell_a, cell_b)
+        function flag = connected(~,cells_a, cells_b)
             % Basic function where if two cells share one vertex,
             % they're connected
-            % 
-            % Usage: flag = tis.connected( cells_a, cell_b)
-            
             flag = 0;
-            va = cell_a.vertices;
+            va = cells_a.vertices;
             for i = 1:numel(va)
-                flag = any(va(i) == cell_b.vertices);
+                flag = any(va(i) == cells_b.vertices);
                 if flag, return; end
             end
         end % connected
         
+        %         function flag = connecte
         
         % ----- Cell handling ------
         
@@ -433,7 +415,7 @@ classdef Tissue
             cells = tis.cells.values;
             cells = [cells{:}];
             cells = cells( [cells.isActive] > 0 );
-        end % getActiveCells
+        end
         
         % ----- Vertex handling ------
         
@@ -501,17 +483,10 @@ classdef Tissue
         %------ Visualization -----
         
         function I = draw(tis,opt)
-            % Draws a single tissue in binary image. Can return just the
-            % outlines of cells, or also shade-in the active cells.
-            %
-            % USAGE: I = draw(tis);
-            %        I = draw(tis,'showActive');
-            %
-            % Cannot handle more than one tissue.
-            
-            if numel(tis) > 1, error('Can only handle single tissue; use tis.movie() to show movie.'); end
-            
-            if nargin < 2, opt = 'none'; end % by default only show outlines
+            % Returns a binary image of the current tissue state
+            if nargin < 2
+                opt = 'none';
+            end
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)

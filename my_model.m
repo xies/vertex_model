@@ -7,8 +7,8 @@ HEX_ANGLE = 'horizontal';
 %HEX_ANGLE = 'vertical';
 % HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 36;
-HEX_NUM_Y = 12;
+HEX_NUM_X = 24;
+HEX_NUM_Y = 8;
 
 %Approx run times for different dimentions for 4 steps
 %48 by 16 - 26 min
@@ -29,8 +29,7 @@ STRATEGY = 'synchronous';
 ELASTICITY = 'elastic';
 % ELASTICITY = 'reorganization';
 
-STEPS = 4; % number of constriction steps
-MEAN_NUMBER_OF_CONSTRICTIONS = 2;
+STEPS = 10; % number of constriction steps
 
 PASSIVE_LAYER_THICKNESS = 1;
 JITTERING_STD = 1;
@@ -39,7 +38,7 @@ FRACTIONAL_NEW_SPRING_CONSTANT = 1.1;
 
 INITIAL_EQM_LENGTH_FACTOR = 1/2;
 
-FRACTION_OF_ACTIVE_CELLS_TO_CONSTRICT = 0.5;
+FRACTION_OF_ACTIVE_CELLS_TO_CONSTRICT = 0.3;
 
 %% create hexagons and the CellGraph object
 hexagons = create_hexagons(HEX_ANGLE, HEX_NUM_X, HEX_NUM_Y);
@@ -50,15 +49,17 @@ tis = Tissue(regions,vertex_list,centroid_list);
 verts = tis.vert_coords;
 
 %% build the parameter cell array
-% fixed cells have at most 2 neighbors
 
-fixed_cells_logical = tis.numCellTouchingVertices <= 2;
+% fixed vertices have at most 2 neighbors (border is fixed)
+fixed_vertices_logical = tis.numCellTouchingVertices <= 2;
 
 p.fixed_cells = find(fixed_cells_logical);
 p.not_fixed_cells = find(~fixed_cells_logical);
 p.numV = size(verts, 1);
 
+% tic
 p.preferred_distances = INITIAL_EQM_LENGTH_FACTOR * squareform( pdist(verts) );
+% toc
 %This is where you can change the spring constant
 p.spring_constants = SPRING_CONSTANT_INITIAL*ones(size(p.preferred_distances));
 
@@ -101,7 +102,7 @@ disp('Beginning constriction...');
 
 for j = 1:STEPS
     
-    display(['Time step = ' num2str(j)])
+    tic
     
     % Add jitter
     verts = verts + JITTERING_STD*randn(size(verts));
@@ -145,6 +146,9 @@ for j = 1:STEPS
     % update tissue with new vertex coordinates
     tis = tis.evolve(verts);
     tissueArray(j+1) = tis;
+    
+    T = toc;
+    display(['Time step = ' num2str(j) ', time = ' num2str(T)])
     
     % store the new CellGraph
     %     cgArray(j) = CellGraph(cg);

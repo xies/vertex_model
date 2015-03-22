@@ -8,8 +8,8 @@ disp('Initializing...');
 HEX_ANGLE = 'diagonal';
 
 
-HEX_NUM_X = 24;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 12;
+HEX_NUM_Y = 4;
 
 %Approx times for different dimentions
 %48 by 16 - 26 min
