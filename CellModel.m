@@ -200,6 +200,9 @@ classdef CellModel
         end
         
         function neighborVerts = getConnectedVertices( cellm, v)
+            % Returns all the edge-connected vertex of v, as seen by cellm
+            % USAGE: neighborVs = getConnectedVertices(cellm,v)
+            
             I = find(cellm.vertices == v);
             if isempty(I), neighborVerts = []; return; end
             

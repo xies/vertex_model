@@ -61,12 +61,13 @@ classdef Tissue
                     
                     % Merge vertices that are too close to each other
                     % @todo: This requires speedup
+                    tic
                     tis.merge_threshold_in_px = 3;
                     [vertices,vert_coords] = tis.merge_vertices(vert_coords,vertices,...
                         tis.merge_threshold_in_px);
                     tis.vert_coords = vert_coords;
                     tis.vertices = vertices;
-                    
+                    toc
                     
                     % Get cell-ownership of vertices via 8-connected neighbors of
                     % vertices and REGIONS map
@@ -181,6 +182,25 @@ classdef Tissue
                     tis.cells( cellIDs(i) ).deactivateCell;
             end
         end % deactivateCell
+        
+        function tis = deactivateBorder(tis,n)
+            % Deactivates the border (up to n order) cells
+            % USAGE: tis = tis.deactivateBorder(1)
+            
+            % By default only deactivate first layer
+            if nargin < 2, n = 1; end
+            
+            if n>1, error('Haven''t implemented higher order :('); end
+            
+            cellIDList = tis.cells.keys; cellIDList = [cellIDList{:}];
+            for ID = cellIDList
+                if tis.numCellNeighbors( tis.cells(ID) ) < 6
+                    tis = tis.deactivateCell( ID );
+                end
+            end
+            
+        end
+            
         
         % ------ Verted-vertex connectivity ------
         
@@ -316,6 +336,12 @@ classdef Tissue
             
         end %allNthOrderNeighbors
         
+        function numNeigh = numCellNeighbors(tis, cellA)
+            % Return the number of neighboring cells to input cell
+            % USAGE: numNeighbor = tis.numCellNeighbors(input_cell)
+            numNeigh = numel( tis.neighborsOfCell( cellA,1 ) );
+        end
+        
         function flag = connected(~,cells_a, cells_b)
             % Basic function where if two cells share one vertex,
             % they're connected
@@ -403,24 +429,44 @@ classdef Tissue
         
         %------ Visualization -----
         
-        function I = draw(tis)
+        function I = draw(tis,opt)
             % Returns a binary image of the current tissue state
+            if nargin < 2
+                opt = 'none';
+            end
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)
                 I = I + tis.cells(cellIDList{i}).draw;
                 I = logical(I);
             end
+                
+            % Show active cells as filled-ins
+            M = zeros(tis.Xs,tis.Ys);
+            switch opt
+                case 'none'
+                    I = double(I) * 255;
+                case 'showActive'
+                    Acells = tis.getActiveCells;
+                    for i = 1:numel(Acells)
+                        M = M + Acells(i).drawMask;
+                    end
+                    M = M * 50;
+                    I = double(I)*255 + M;
+                otherwise
+                    error('Unrecognized draw command/option')
+            end
+            
         end
         
-        function F = movie(tissues)
+        function F = movie(tissues,opt)
             % Make a movie of tissue evolving
             num_frames = numel(tissues);
             
             F = zeros(tissues(1).Xs, tissues(1).Ys, num_frames);
             
             for f = 1:num_frames
-                F(:,:,f) = tissues(f).draw();
+                F(:,:,f) = tissues(f).draw(opt);
             end
             
         end
