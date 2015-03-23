@@ -37,12 +37,12 @@ spring_constants = p.spring_constants;
 % compute the energy
 % IMPORTANT LINE
 distance_fluct = spring_constants .* (distances - preferred_distances).^2;   
-% get rid of NaN elements for summing
-distance_fluct(isnan(distance_fluct)) = 0; 
+% % get rid of NaN elements for summing
+% distance_fluct(isnan(distance_fluct)) = 0; 
 % only keep half of the matrix (throws away diagonal as well)
 distance_fluct = triu(distance_fluct); 
 % distance_fluct = p.weights .* distance_fluct;
-DISTANCES_TERM = sum(distance_fluct(:));
+DISTANCES_TERM = nansum(distance_fluct(:));
 
 E = E + DISTANCES_TERM;
 

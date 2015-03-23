@@ -6,8 +6,6 @@ classdef Tissue
     %   vert_coords - Nv x 2 array of vertex locations
     %   vertices % Nv x1 array of Vertex.m objects
     %   cells - container.Map hashmap of CellModels keyed by cellID
-    %   connectivity - Nv x Nv matrix of how vertices are connected
-    %                   (see connectVertices())
     %   parameters - simulation parameters (see setParameters)
     %
     %   Ys - tissue image size (for display and initiation only)
@@ -64,7 +62,6 @@ classdef Tissue
         centroids % Ncx2 array of centroid locations
         vert_coords % Nvx2 array of vertex locations
         vertices % array of Vertex.m objects
-        connectivity % Nv x Nv matrix of how vertices are connected
         cells % hashmap of the CellModels contained by the tissue
         parameters % Simulation parameters
         
@@ -107,6 +104,7 @@ classdef Tissue
                     tis.t = tis_old.t;
                     tis.vertices = tis_old.vertices;
                     tis.vert_coords = tis_old.vert_coords;
+                    tis.parameters = tis_old.parameters;
                     
                     % Copy the reference object via concatenation w/ empty
                     % Map, creating a brand new Map!
@@ -211,6 +209,33 @@ classdef Tissue
             end
             % Advance time stamp by one
             tis.t = tis.t + 1;
+        end % evolve
+        
+        function tis = setParameters(tis,E0,kappa,conn_opt)
+            % 
+            
+            verts = tis.vert_coords;
+            % fixed vertices have at most 2 neighbors (border is fixed)
+            
+            fixed_vertices_logical = tis.numCellTouchingVertices <= 2;
+            
+            p.fixed_cells = find(fixed_vertices_logical);
+            p.not_fixed_cells = find(~fixed_vertices_logical);
+            p.numV = size(verts, 1);
+            
+            p.preferred_distances = E0 * squareform( pdist(verts) );
+            % This is where you can change the spring constant
+            p.spring_constants = kappa*ones(size(p.preferred_distances));
+            
+            conn = tis.adjMatrix(conn_opt);
+            p.connectivity = conn;
+            
+            tis.parameters = p;
+            
+        end % setParameters
+        
+        function tis = changeParameters( tis, new_p )
+%             tis.parameters = new_p;
         end
         
         function tis = activateCell( tis, cellIDs, varargin)
@@ -286,11 +311,35 @@ classdef Tissue
             end
             
         end % deactivateBorder
+        
+        % ------  Calculate energy, force, velocity ------
+        
+        function E = get_energy(tis)
             
+            E = 0;
+            
+            % E = area_elasticity
+%             E = E + 
+            
+            % compute the gradient
+            gradient = compute_gradient(distances, preferred_distances, spring_constants, verts);
+            
+            % remove the fixed cells from the gradient
+            gradient(p.fixed_cells, :) = [];
+            
+            gradient = [gradient(:,1); gradient(:,2)];
+
+        end % get_energy
+        
+        function F = get_force()
+        end
+        
+%         function v = get_velocities()
+%         end
         
         % ------ Verted-vertex connectivity ------
         
-        function tis = connectVertices(tis, opt, cells)
+        function conn = adjMatrix(tis, opt, cells)
             % Sets the vertex-vertex connectivity matrix according to the
             % specified model configurations
             % 
@@ -328,8 +377,19 @@ classdef Tissue
                 otherwise
                     error('Unrecognized vertex connection option.')
             end
-            tis.connectivity = conn;
+            
         end % connectVertices
+%         
+%         function D = getConnDist( tis )
+%             if isempty( tis.parameters.connectivity )
+%                 D = squareform( pdist(tis.vert_coords) );
+%             else
+%                 % If a connectivity matrix is supplied, then must be sparse!
+%                 % We can use IPDM instead of pdist
+%                 D = ipdm(tis.vert_coords, ...
+%                     'Subset','maximum','limit',40,'Result','array');
+%             end
+%         end
         
         % ------ Cell-Vertex connectivity -----
         
@@ -519,7 +579,6 @@ classdef Tissue
             vertDist = squareform(pdist(vcoords));
             vertDist( logical(eye(num_vertices)) ) = NaN;
             
-            keyboard
             while any(any(vertDist <= merge_threshold_in_px))
                 
                 % Find a set of vertices to merge

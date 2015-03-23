@@ -7,8 +7,8 @@ HEX_ANGLE = 'horizontal';
 %HEX_ANGLE = 'vertical';
 % HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 24;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 12;
+HEX_NUM_Y = 4;
 
 %Approx run times for different dimentions for 4 steps
 %48 by 16 - 26 min
@@ -29,7 +29,7 @@ STRATEGY = 'synchronous';
 ELASTICITY = 'elastic';
 % ELASTICITY = 'reorganization';
 
-STEPS = 10; % number of constriction steps
+STEPS = 4; % number of constriction steps
 
 PASSIVE_LAYER_THICKNESS = 1;
 JITTERING_STD = 1;
@@ -41,6 +41,7 @@ INITIAL_EQM_LENGTH_FACTOR = 1/2;
 FRACTION_OF_ACTIVE_CELLS_TO_CONSTRICT = 0.3;
 
 %% create hexagons and the CellGraph object
+
 hexagons = create_hexagons(HEX_ANGLE, HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -48,24 +49,15 @@ hexagons = create_hexagons(HEX_ANGLE, HEX_NUM_X, HEX_NUM_Y);
 tis = Tissue(regions,vertex_list,centroid_list);
 verts = tis.vert_coords;
 
-%% build the parameter cell array
-
-% fixed vertices have at most 2 neighbors (border is fixed)
-fixed_vertices_logical = tis.numCellTouchingVertices <= 2;
-
-p.fixed_cells = find(fixed_cells_logical);
-p.not_fixed_cells = find(~fixed_cells_logical);
-p.numV = size(verts, 1);
-
-% tic
-p.preferred_distances = INITIAL_EQM_LENGTH_FACTOR * squareform( pdist(verts) );
-% toc
-%This is where you can change the spring constant
-p.spring_constants = SPRING_CONSTANT_INITIAL*ones(size(p.preferred_distances));
+%%
+tis = tis.setParameters( ...
+    FRACTIONAL_NEW_EQUILIBRIUM_LENGTH, ...
+    FRACTIONAL_NEW_SPRING_CONSTANT, ...
+    CONNECTIVITY);
 
 clear tissueArray;
 tissueArray(1:STEPS+1) = Tissue;
-P = cell(STEPS, 1);
+% P = cell(STEPS, 1);
 Force = cell(STEPS, 3); % 3 rows -> bigvert, biggrad, stress
 
 r.average_anisotropy = zeros(STEPS, 1);
@@ -76,26 +68,6 @@ r.rms_stress = zeros(STEPS, 1);
 r.max_stress = zeros(STEPS, 1);
 r.stress_anisotropy = zeros(STEPS, 1);
 
-%% initial set-up
-% Make outer layer passive
-% cg.setActiveCellsAuto(PASSIVE_LAYER_THICKNESS);
-tis = tis.connectVertices(CONNECTIVITY);
-p.connectivity = tis.connectivity;
-
-% % so far connectivity doesn't change each round
-% % but with the stress reponse fibers it will
-% switch CONNECTIVITY
-%     case 'purse string'
-%         p.connectivity = cg.connectivityMatrixVertex;
-%     case 'network'
-%         p.connectivity = cg.connectivityMatrixVertexCrossConnections;
-%     case 'purse string and network'
-%         p.connectivity = cg.connectivityMatrixVertex + ...
-%             cg.connectivityMatrixVertexCrossConnections;
-%     otherwise
-%         disp('No valid CONNECTIVITY selected');
-% end
-
 %% Minimize energy
 tissueArray(1) = tis;
 disp('Beginning constriction...');
@@ -103,9 +75,11 @@ disp('Beginning constriction...');
 for j = 1:STEPS
     
     tic
+    p = tis.parameters;
     
     % Add jitter
-    verts = verts + JITTERING_STD*randn(size(verts));
+    jitter = JITTERING_STD*randn([ numel(p.not_fixed_cells) 2]);
+    verts( p.not_fixed_cells,: ) = verts( p.not_fixed_cells,: ) + jitter;
     
     tis = tis.deactivateCell;
     tis = tis.activateCell( 'random', FRACTION_OF_ACTIVE_CELLS_TO_CONSTRICT );
@@ -114,7 +88,7 @@ for j = 1:STEPS
     if isempty(tis.getActiveCells)
         actconn = zeros(size(p.connectivity));
     else
-        actconn = tis.connectVertices( 'purse string', tis.getActiveCells ).connectivity;
+        actconn = tis.adjMatrix( 'purse string', tis.getActiveCells );
     end
     actconn = logical(actconn);
     
@@ -123,6 +97,7 @@ for j = 1:STEPS
         p.preferred_distances(actconn) * FRACTIONAL_NEW_EQUILIBRIUM_LENGTH;
     p.spring_constants(actconn) = ...
         p.spring_constants(actconn) * FRACTIONAL_NEW_SPRING_CONSTANT;
+    tis = tis.changeParameters( p );
     
     p.initial_verts = verts;
     
@@ -148,12 +123,7 @@ for j = 1:STEPS
     tissueArray(j+1) = tis;
     
     T = toc;
-    display(['Time step = ' num2str(j) ', time = ' num2str(T)])
-    
-    % store the new CellGraph
-    %     cgArray(j) = CellGraph(cg);
-    % reset the active cells (if desired???)
-    %     cg.setActiveCellsAuto(PASSIVE_LAYER_THICKNESS)
+    display(['Time step = ' num2str(j) ', time = ' num2str(T) ' sec.'])
     
 end
 disp('Constriction finished.');
