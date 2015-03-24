@@ -7,8 +7,8 @@ HEX_ANGLE = 'horizontal';
 %HEX_ANGLE = 'vertical';
 % HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 12;
-HEX_NUM_Y = 4;
+HEX_NUM_X = 16;
+HEX_NUM_Y = 8;
 
 %Approx run times for different dimentions for 4 steps
 %48 by 16 - 26 min
@@ -16,7 +16,8 @@ HEX_NUM_Y = 4;
 %24 by 8 - 23 sec
 %12 by 4 - 5 sec
 
-SPRING_CONSTANT_INITIAL = 1;
+TARGET_AREA_FRACTION_OF_INIT = 1;
+AREA_ELASTICITY = 1;
 
 CONNECTIVITY = 'purse string';
 %  CONNECTIVITY = 'network';
@@ -29,12 +30,10 @@ STRATEGY = 'synchronous';
 ELASTICITY = 'elastic';
 % ELASTICITY = 'reorganization';
 
-STEPS = 4; % number of constriction steps
+STEPS = 50; % number of constriction steps
 
 PASSIVE_LAYER_THICKNESS = 1;
 JITTERING_STD = 1;
-FRACTIONAL_NEW_EQUILIBRIUM_LENGTH = .5;
-FRACTIONAL_NEW_SPRING_CONSTANT = 1.1;
 
 INITIAL_EQM_LENGTH_FACTOR = 1/2;
 
@@ -49,150 +48,37 @@ hexagons = create_hexagons(HEX_ANGLE, HEX_NUM_X, HEX_NUM_Y);
 tis = Tissue(regions,vertex_list,centroid_list);
 verts = tis.vert_coords;
 
-%%
-tis = tis.setParameters( ...
-    FRACTIONAL_NEW_EQUILIBRIUM_LENGTH, ...
-    FRACTIONAL_NEW_SPRING_CONSTANT, ...
-    CONNECTIVITY);
+%% Set parameters
+
+A0 = mean([tis.getCells.area]);
+P0 = mean([tis.getCells.perimeter]);
+
+p.targetAreas = A0;
+p.targetPerimeter = P0;
+p.areaElasticity = AREA_ELASTICITY;
+p.conn_opt = CONNECTIVITY;
+
+tis = tis.setParameters(p);
 
 clear tissueArray;
 tissueArray(1:STEPS+1) = Tissue;
-% P = cell(STEPS, 1);
-Force = cell(STEPS, 3); % 3 rows -> bigvert, biggrad, stress
+tis_init = tis;
 
-r.average_anisotropy = zeros(STEPS, 1);
-r.average_xy_anisotropy = zeros(STEPS, 1);
-r.average_constriction = zeros(STEPS, 1);
-r.average_constriction_std = zeros(STEPS, 1);
-r.rms_stress = zeros(STEPS, 1);
-r.max_stress = zeros(STEPS, 1);
-r.stress_anisotropy = zeros(STEPS, 1);
+%% Euler scheme of model integration
+% @todo: not numerically stable!
 
-%% Minimize energy
-tissueArray(1) = tis;
-disp('Beginning constriction...');
+tis = tis_init; tissueArray(1) = tis;
 
-for j = 1:STEPS
+for i = 1:STEPS
     
-    tic
-    p = tis.parameters;
+    tis = tis.jitterVertices( JITTERING_STD );
+    verts = tis.vert_coords;
+    displacements = tis.get_velocities / 1e5;
+    verts = verts + displacements;
     
-    % Add jitter
-    jitter = JITTERING_STD*randn([ numel(p.not_fixed_cells) 2]);
-    verts( p.not_fixed_cells,: ) = verts( p.not_fixed_cells,: ) + jitter;
-    
-    tis = tis.deactivateCell;
-    tis = tis.activateCell( 'random', FRACTION_OF_ACTIVE_CELLS_TO_CONSTRICT );
-    tis = tis.deactivateBorder;
-    
-    if isempty(tis.getActiveCells)
-        actconn = zeros(size(p.connectivity));
-    else
-        actconn = tis.adjMatrix( 'purse string', tis.getActiveCells );
-    end
-    actconn = logical(actconn);
-    
-    % choose cells to constrict out of the active cells
-    p.preferred_distances(actconn) = ...
-        p.preferred_distances(actconn) * FRACTIONAL_NEW_EQUILIBRIUM_LENGTH;
-    p.spring_constants(actconn) = ...
-        p.spring_constants(actconn) * FRACTIONAL_NEW_SPRING_CONSTANT;
-    tis = tis.changeParameters( p );
-    
-    p.initial_verts = verts;
-    
-    % optimization routine
-    % use the anonymous function @(x) calc_energy(x,p) to pass parameters...
-    options = optimset('GradObj', 'on', 'DerivativeCheck', 'off', ...
-        'LargeScale', 'off', 'Hessian', 'off', 'display','off');
-    
-    % remove the fixed cells from "verts"
-    verts(p.fixed_cells, :) = [];
-    % change the shape of verts to be a column vector (note: y before x)
-    verts = [verts(:,1); verts(:,2)];
-    
-    [output_verts, E, exitflag, output, grad_true] ...
-        = fminunc(@(x) calculate_energy(x, p), verts, options);
-    output_verts = reshape(output_verts, length(output_verts)/2, 2);  % change it back
-    % put the original vertices back in the fixed cells
-    verts = p.initial_verts;
-    verts(p.not_fixed_cells, :) = output_verts;
-    
-    % update tissue with new vertex coordinates
-    tis = tis.evolve(verts);
-    tissueArray(j+1) = tis;
-    
-    T = toc;
-    display(['Time step = ' num2str(j) ', time = ' num2str(T) ' sec.'])
-    
-end
-disp('Constriction finished.');
-
-%% display results
-
-average_anisotropy = r.average_anisotropy
-average_xy_anisotropy = r.average_xy_anisotropy
-average_constriction = r.average_constriction
-average_constriction_std = r.average_constriction_std
-rms_stress = r.rms_stress
-max_stress = r.max_stress
-stress_anisotropy = r.stress_anisotropy
-stress_anis = r.stress_anisotropy
-
-% plotting
-drawing(:,:,3) = initial_cg.draw;
-drawing(:,:,1) = initial_cg.drawVertices;
-figure('Position', [100 460 600 300]);
-imshow(drawing);
-title('Beginning graph')
-
-%%
-
-for j = STEPS:STEPS
-    
-    cg = cgArray(j);
-    verts = cg.vertexCoords;
-    p = P{j};
-    bigvert = Force{j, 1};
-    biggrad = Force{j, 2};
-    stress  = Force{j, 3};
-    
-    drawing(:,:,3) = cg.draw;
-    drawing(:,:,1) = cg.drawVertices;
-    figure('Position', [100 50 600 400]);
-    imshow(drawing);
-end
-
-for j = STEPS:STEPS
-    figure('Position', [800 50 600 400]);
-    imshow(drawing);
-    hold on;
-    
-    % plot active cells in yellow
-    cents = cg.centroidCoordsActiveCells;
-    plot(cents(:,2), cents(:,1), '*y');
-    
-    quiver(bigvert(:, 2), bigvert(:,1), ...
-        biggrad(:, 2), biggrad(:, 1), 0.5, 'g');
-    hold off
-end
-for j = STEPS:STEPS
-    
-    stress_img = zeros(size(cg.draw));
-    for k = 1:size(verts, 1)
-        y = round(verts(k, 1)); x = round(verts(k, 2));
-        s = 2;
-        stress_img(y-s:y+s, x-s:x+s) = stress(k);
-    end
-    figure('Position', [800 460 600 300]); hold on;
-    imshow(zeros(size(stress_img))); %to get the axes right
-    imagesc(stress_img); axis equal; axis off;
-    colorbar; colormap 'hot'; zoom(2); zoom(1/2);
-    draw_connectivity_matrix_fast(cg.connectivityMatrixVertex, ...
-        verts, [0 0 1]);
-    hold off;
+    tis = tis.evolve( verts );
+    tissueArray( i + 1 ) = tis;
+    i
     
 end
 
-%% save p
-save('Ps_for_all_steps.mat','P','cg','initial_cg')

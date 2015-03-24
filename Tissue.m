@@ -6,7 +6,14 @@ classdef Tissue
     %   vert_coords - Nv x 2 array of vertex locations
     %   vertices % Nv x1 array of Vertex.m objects
     %   cells - container.Map hashmap of CellModels keyed by cellID
-    %   parameters - simulation parameters (see setParameters)
+    %   connectivity - Nv x Nv adjacency matrix of how vertices are
+    %          connected
+    %
+    %   --- Parameters - simulation parameters (see setParameters)
+    %       p.targetAreas - target cell area
+    %       p.targetPerimeter - target edge lengths
+    %       p.areaElasticity - bulk elastic constant for cell area
+    %       p.fixed_verts - list of fixed vertices
     %
     %   Ys - tissue image size (for display and initiation only)
     %   Xs - tissue image size
@@ -17,9 +24,14 @@ classdef Tissue
     % 
     %   Tissue - constructor
     %   isValid - consistency checker
+    % 
+    %   --- Energy methods ---
+    %       get_energy - calculate the pot. energy of current config
+    %       get_velocity - calculates the velocity on each vertex
     %   
     %   --- Simulation methods ---
     %       evolve - make new configuration via updating vert_coords
+    %       serParameters - sets the parameters and connects vertices
     %       activateCell - set certain cells to be active
     %       deactivateCell  - set certain cells to be not active
     %       deactivateBorder - set the outermost cells to be not active
@@ -59,11 +71,13 @@ classdef Tissue
     % xies@mit.edu March 2015
     properties
         
+        % -- current config --
         centroids % Ncx2 array of centroid locations
         vert_coords % Nvx2 array of vertex locations
         vertices % array of Vertex.m objects
         cells % hashmap of the CellModels contained by the tissue
-        parameters % Simulation parameters
+        connectivity % adjacency matrix
+        parameters % simulation parameters
         
         Xs % tissue pixel size
         Ys
@@ -104,6 +118,7 @@ classdef Tissue
                     tis.t = tis_old.t;
                     tis.vertices = tis_old.vertices;
                     tis.vert_coords = tis_old.vert_coords;
+                    tis.connectivity = tis_old.connectivity;
                     tis.parameters = tis_old.parameters;
                     
                     % Copy the reference object via concatenation w/ empty
@@ -129,7 +144,7 @@ classdef Tissue
                     
                     % Merge vertices that are too close to each other
                     % @todo: This requires speedup
-                    tis.merge_threshold_in_px = 3;
+                    tis.merge_threshold_in_px = 6;
                     [vertices,vert_coords] = tis.merge_vertices(vert_coords,vertices,...
                         tis.merge_threshold_in_px);
                     tis.vert_coords = vert_coords;
@@ -169,8 +184,7 @@ classdef Tissue
             flag = flag & all(all(cat(2,vx',vy') == tis.vert_coords));
             
             % vertices and the set of cell vertices match
-            cells = tis.cells.values;
-            cells = [cells{:}];
+            cells = tis.getCells;
             vt = [cells.vertices];
             vx = unique([vt.x]); vy = unique([vt.y]);
             flag = flag && all(vx == unique( [tis.vertices.x] ) );
@@ -178,15 +192,85 @@ classdef Tissue
             
         end
         
+        % ------  Calculate energy, force, velocity ------
+        
+        function E = get_energy(tis)
+            
+            p = tis.parameters; % get parameters
+            
+            current_areas = [tis.getCells.area];
+            areaElasticTerm = nansum( p.areaElasticity.*(current_areas - p.targetAreas) );
+            perimElasticTerm = nansum( p.perimElasticity.*([tis.getCells.perimeter] - p.targetLengths) );
+            
+            C = [tis.getCells.contractility];
+            activeContractionTerm = nansum( C./current_areas );
+            
+            E = areaElasticTerm + perimElasticTerm + activeContractionTerm;
+
+        end % get_energy
+        
+        function V = get_velocities(tis)
+            % Angles
+            vcoords = tis.vert_coords;
+            conn = tis.connectivity;
+            num_verts = size(vcoords,1);
+            V = zeros( size(vcoords) );
+            
+            D = squareform( pdist(vcoords) );
+            
+            % For now, loop through; vectorize later
+            for i = 1:num_verts
+                
+                vi = tis.vertices(i);
+                J = find(conn(i,:) == 1);
+                % Only give nonzero velocities for vertices w/ more than 2
+                % neighbors.
+                if numel(J) > 2
+                    Vj = tis.vertices(J);
+                    Vj = Vj.sort([vi.x, vi.y]);
+                    
+                    contractileTerm = [0 0]; dualAreaElasticity = [0 0];
+                    circularIndex = [ 2, 3; 3, 1; 1, 2];
+                    
+                    for j = 1:numel(J)
+                        
+                        contractileTerm(1) = contractileTerm(1) + ...
+                            (vcoords(i,1) - Vj(j).x) / D(i,J(j));
+                        contractileTerm(2) = contractileTerm(2) + ...
+                            (vcoords(i,2) - Vj(j).y) / D(i,J(j));
+                        
+                        x = diff([Vj( circularIndex(j,:) ).x]);
+                        y = diff([Vj( circularIndex(j,:) ).y]);
+                        deltaS = cross([x,y,0], [0 0 1]);
+                        Sij = norm(deltaS);
+                        deltaS = deltaS(1:2) / Sij;
+                        
+                        dualAreaElasticity = dualAreaElasticity + ...
+                            (Sij - tis.parameters.targetAreas/3) / 2 * deltaS;
+                        
+                    end
+                    
+                    % HARDCODED!!!
+                    % @todo: figure out how to set edge contractility!
+                    V(i,:) = 10*contractileTerm + 1e-5* dualAreaElasticity;
+                    
+                end
+                
+                if any(any(isnan( V ))), keyboard; end
+                
+            end
+        end % get_velocities
+        
         % ------ Simulation methods ---------
         
-        function tis = evolve( tis_old, new_vcoords)
+        function tis = evolve( tis_old, new_vcoords, varargin)
             % EVOLVE - updates and returns a new copy of the old tissue
             % configuration by moving all the vertex positions
             %   NOTA BENE: the old .cells container is COPIED and not
             %              direclty modified, since it's a reference object
             %
-            % USAGE: new_tissue = old_tissue( new_vcoords);
+            % USAGE: new_tissue = old_tissue( new_vcoords );
+            %        new_tissue = old_tissue( new_vcoords ,'no_update');
             
             if size(new_vcoords,1) ~= numel(tis_old.vertices)
                 error('Size of new vertex list must match old vertices')
@@ -208,35 +292,36 @@ classdef Tissue
                 tis.vertices(i) = tis.vertices(i).move(new_vcoords(i,:));
             end
             % Advance time stamp by one
-            tis.t = tis.t + 1;
+            if nargin > 2,
+                if ~strcmpi(varargin{1},'no_update'); tis.t = tis.t + 1; end
+            end
         end % evolve
         
-        function tis = setParameters(tis,E0,kappa,conn_opt)
+        function tis = setParameters(tis,parameters)
+            % Sets the simluation/evolution parameters
+            %
+            % USAGE: tissue = 
+            %           tis.setParameters(p);
             % 
+            % INPUT: tis - tissue
+            %        p.targetArea - target area
+            %        p.targetLength - target edge length
+            %        p.areaElasticity - area elasticity
+            %        p.perimElasticity - area elasticity
+            %        p.connect_opt - connectivity option ('purse string')
+            %
+            % @todo: Figure out how to error-handle bad inputs
             
-            verts = tis.vert_coords;
-            % fixed vertices have at most 2 neighbors (border is fixed)
-            
-            fixed_vertices_logical = tis.numCellTouchingVertices <= 2;
-            
-            p.fixed_cells = find(fixed_vertices_logical);
-            p.not_fixed_cells = find(~fixed_vertices_logical);
-            p.numV = size(verts, 1);
-            
-            p.preferred_distances = E0 * squareform( pdist(verts) );
-            % This is where you can change the spring constant
-            p.spring_constants = kappa*ones(size(p.preferred_distances));
-            
-            conn = tis.adjMatrix(conn_opt);
-            p.connectivity = conn;
-            
-            tis.parameters = p;
+            tis.parameters = parameters;
+            tis.parameters.fixed_verts = tis.numCellTouchingVertices < 3;
+            conn = tis.adjMatrix(parameters.conn_opt);
+            tis.connectivity = conn;
             
         end % setParameters
         
-        function tis = changeParameters( tis, new_p )
+%         function tis = changeParameters( tis, new_p )
 %             tis.parameters = new_p;
-        end
+%         end
         
         function tis = activateCell( tis, cellIDs, varargin)
             % Set specified cells (IDs) to "active = 1"
@@ -312,30 +397,39 @@ classdef Tissue
             
         end % deactivateBorder
         
-        % ------  Calculate energy, force, velocity ------
-        
-        function E = get_energy(tis)
+        function tis = setContractility(tis,C)
+            % Directly sets the active contractility coefficient
+            % Requires all cells to have its own specified contractility
+            % 
+            % USAGE: tis = tis.setContractility( C );
+            % INPUT: tis - tissue
+            %        C - (Nc x 1) vector of contractility values
             
-            E = 0;
+            if numel( tis.cells ) ~= numel( C )
+                error('Number of contractility coeff and number of cells don''t match');
+            end
             
-            % E = area_elasticity
-%             E = E + 
+            cellIDList = tis.cells.keys;
+            for i = 1:tis.cells.length
+                tis.cells( cellIDList{i} ) = ...
+                    tis.cells( cellIDList{i} ).setContractility(C(i));
+            end
             
-            % compute the gradient
-            gradient = compute_gradient(distances, preferred_distances, spring_constants, verts);
-            
-            % remove the fixed cells from the gradient
-            gradient(p.fixed_cells, :) = [];
-            
-            gradient = [gradient(:,1); gradient(:,2)];
-
-        end % get_energy
-        
-        function F = get_force()
         end
         
-%         function v = get_velocities()
-%         end
+        function tis = jitterVertices(tis, STD)
+            % Add a set amount of Gaussian jitter to vertex position.
+            %
+            % USAGE: tis = tis.jitterVertices( STD )
+            
+            verts = tis.vert_coords;
+            I = ~tis.parameters.fixed_verts;
+            jitter = STD*randn([ numel(I(I)), 2]);
+            verts( I,: ) = verts( I,: ) + jitter;
+            
+            tis = tis.evolve( verts , 'no_update' );
+            
+        end
         
         % ------ Verted-vertex connectivity ------
         
@@ -357,8 +451,7 @@ classdef Tissue
             vt = tis.vertices;
             num_vertices = numel(vt);
             if nargin < 3
-                cells = tis.cells.values;
-                cells = [cells{:}];
+                cells = tis.getCells;
             end
             
             switch opt
@@ -379,17 +472,6 @@ classdef Tissue
             end
             
         end % connectVertices
-%         
-%         function D = getConnDist( tis )
-%             if isempty( tis.parameters.connectivity )
-%                 D = squareform( pdist(tis.vert_coords) );
-%             else
-%                 % If a connectivity matrix is supplied, then must be sparse!
-%                 % We can use IPDM instead of pdist
-%                 D = ipdm(tis.vert_coords, ...
-%                     'Subset','maximum','limit',40,'Result','array');
-%             end
-%         end
         
         % ------ Cell-Vertex connectivity -----
         
@@ -398,7 +480,7 @@ classdef Tissue
             %
             % Usage: touchingCells = tis.cellsContainingVertex( vert )
             
-            cells = tis.cells.values; cells = [cells{:}];
+            cells = tis.getCells;
             verts = {cells.vertices};
             I = cellfun( @(x) any( x == vert), verts );
             cellsThatTouch = cells(I);
@@ -522,12 +604,32 @@ classdef Tissue
         
         % ----- Cell handling ------
         
+        function cells = getCells( tis, varargin )
+            % Returns cells from tissue as an array.
+            % 
+            % USAGE:
+            %    cells = tis.getCells(); % returns all cells
+            %    cells = tis.getCells(cellID); returns subset
+            
+            % Get all cells
+            if nargin == 1
+                cells = tis.cells.values;
+                cells = [cells{:}];
+            else
+                cellID = varargin;
+                num_cells = numel(cellID);
+                cells(1:num_cells) = CellModel();
+                for i = 1:num_cells
+                    cells(i) = tis.cells( cellID(i) );
+                end
+            end
+        end
+        
         function cells = getActiveCells(tis)
             % Return all active cells in the tissue
             %
             % USAGE: actives = tissue.getActiveCells;
-            cells = tis.cells.values;
-            cells = [cells{:}];
+            cells = tis.getCells;
             cells = cells( [cells.isActive] > 0 );
         end % getActiveCells
         
@@ -603,7 +705,7 @@ classdef Tissue
         
         %------ Visualization -----
         
-        function I = draw(tis,opt)
+        function I = draw(tis,varargin)
             % Draws a single tissue in binary image. Can return just the
             % outlines of cells, or also shade-in the active cells.
             %
@@ -614,7 +716,7 @@ classdef Tissue
             
             if numel(tis) > 1, error('Can only handle single tissue; use tis.movie() to show movie.'); end
             
-            if nargin < 2, opt = 'none'; end % by default only show outlines
+            if nargin < 2, opt = 'none'; else, opt = varargin{1}; end % by default only show outlines
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)
@@ -640,7 +742,7 @@ classdef Tissue
             
         end
         
-        function F = movie(tissues,opt)
+        function F = movie(tissues,varargin)
             % Make a movie of tissue evolving. Can return just the
             % outlines of cells, or also shade-in the active cells.
             %
@@ -648,6 +750,10 @@ classdef Tissue
             %        I = movie(tisues,'showActive');
             
             num_frames = numel(tissues);
+            if nargin == 1, opt = 'none';
+            else
+                opt = varargin{1};
+            end
             
             F = zeros(tissues(1).Xs, tissues(1).Ys, num_frames);
             

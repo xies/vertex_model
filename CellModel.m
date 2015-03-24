@@ -31,6 +31,7 @@ classdef CellModel
     %   --- Cell set methods ---
     %       activateCell - set cell to active
     %       deactivateCell -  set cell to not active
+    %       setContractility - sets the contractility of a cell
     %       updateCell - update all properties of CellModel to match
     %          current set of vertices
     %       sort - sorts an array of cells in counter-clockwise w.r.t. an
@@ -127,6 +128,7 @@ classdef CellModel
             ct = cellm.get_centroid;
             flag = flag && abs(ct(1) - cellm.centroid(1)) <= 1;
             flag = flag && abs(ct(2) - cellm.centroid(2)) <= 1;
+            if ~flag, keyboard; end
         end
         
         function flags = eq( this_cell, cellArray)
@@ -190,6 +192,11 @@ classdef CellModel
         
         function cell = activateCell(cell), cell.isActive = 1; end
         function cell = deactivateCell(cell), cell.isActive = 0; end
+        
+        function cellm = setContractility( cellm, C)
+            % Sets the active contractility coefficient of a cell
+            cellm.contractility = C;
+        end
         
         function cellm = updateCell(cellm)
             % Updates the centroid to the current centroid, area,
