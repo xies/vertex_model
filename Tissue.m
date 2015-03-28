@@ -8,6 +8,7 @@ classdef Tissue
     %   cells - container.Map hashmap of CellModels keyed by cellID
     %   connectivity - Nv x Nv adjacency matrix of how vertices are
     %          connected
+    %   interVertDist - Nv x Nv distance matrix of connected vertices
     %
     %   --- Parameters - simulation parameters (see setParameters)
     %       p.targetAreas - target cell area
@@ -77,6 +78,7 @@ classdef Tissue
         vertices % array of Vertex.m objects
         cells % hashmap of the CellModels contained by the tissue
         connectivity % adjacency matrix
+        interVertDist % dist matrix
         parameters % simulation parameters
         
         Xs % tissue pixel size
@@ -119,6 +121,7 @@ classdef Tissue
                     tis.vertices = tis_old.vertices;
                     tis.vert_coords = tis_old.vert_coords;
                     tis.connectivity = tis_old.connectivity;
+                    tis.interVertDist = tis_old.interVertDist;
                     tis.parameters = tis_old.parameters;
                     
                     % Copy the reference object via concatenation w/ empty
@@ -195,70 +198,120 @@ classdef Tissue
         % ------  Calculate energy, force, velocity ------
         
         function E = get_energy(tis)
+            % GET_ENERGY Returns the current energy of the system
+            % 
+            % USAGE: E = get_energy(tis)
+            %
+            % Right now implements area elasticity, parameter elasticity,
+            % and active contractility. 
+            % 
+            % 
             
             p = tis.parameters; % get parameters
             
+            dist = tis.interVertDist .* tis.connectivity;
+            lineTensionTerm = nansum(nansum( triu(dist) ) * p.lineTension);
+            
             current_areas = [tis.getCells.area];
-            areaElasticTerm = nansum( p.areaElasticity.*(current_areas - p.targetAreas) );
-            perimElasticTerm = nansum( p.perimElasticity.*([tis.getCells.perimeter] - p.targetLengths) );
+            areaElasticTerm = nansum( p.areaElasticity.* ...
+                ([tis.getCells.area] - p.targetAreas).^2 );
+            perimElasticTerm = nansum( p.perimElasticity.* ...
+                ([tis.getCells.perimeter] - p.targetPerimeters).*2 );
             
             C = [tis.getCells.contractility];
-            activeContractionTerm = nansum( C./current_areas );
+            activeContractionTerm = nansum( C .* current_areas );
             
-            E = areaElasticTerm + perimElasticTerm + activeContractionTerm;
+            E = areaElasticTerm + perimElasticTerm + activeContractionTerm + lineTensionTerm;
 
         end % get_energy
         
         function V = get_velocities(tis)
-            % Angles
+            % NOT VALIDATED
+            
             vcoords = tis.vert_coords;
+            D = tis.interVertDist;
             conn = tis.connectivity;
+            
             num_verts = size(vcoords,1);
             V = zeros( size(vcoords) );
-            
-            D = squareform( pdist(vcoords) );
             
             % For now, loop through; vectorize later
             for i = 1:num_verts
                 
                 vi = tis.vertices(i);
                 J = find(conn(i,:) == 1);
+                neighbors = tis.cellsContainingVertex( vi );
                 % Only give nonzero velocities for vertices w/ more than 2
                 % neighbors.
-                if numel(J) > 2
+                if numel(neighbors) > 2
                     Vj = tis.vertices(J);
                     Vj = Vj.sort([vi.x, vi.y]);
                     
-                    contractileTerm = [0 0]; dualAreaElasticity = [0 0];
-                    circularIndex = [ 2, 3; 3, 1; 1, 2];
+                    line_tension_term = [0 0];
+                    area_elastic_term = [0 0];
+                    perim_elastic_term = [0 0];
+                    active_contraction_term = [0 0];
                     
                     for j = 1:numel(J)
+                        % Line tension term
+                        line_tension_term = line_tension_term + ...
+                            (vcoords(i,:) - [Vj(j).x Vj(j).y]) / D(i,J(j));
+                    end
+                    
+                    % Go through all CELLS associated with current vertex,
+                    % and calculate cell elasticity.
+                    % NOTE that we can't just go through "edges" themselves
+                    for this_cell = neighbors
                         
-                        contractileTerm(1) = contractileTerm(1) + ...
-                            (vcoords(i,1) - Vj(j).x) / D(i,J(j));
-                        contractileTerm(2) = contractileTerm(2) + ...
-                            (vcoords(i,2) - Vj(j).y) / D(i,J(j));
+                        % Need to sort vertices counter-clockwise
+                        sortedVt = this_cell.vertices;
+                        I = find( vi == sortedVt );
+                        I = wrap( [I-1 I I + 1] , numel(sortedVt)); % circularly index
+                        r = [sortedVt(I).x ; sortedVt(I).y];
                         
-                        x = diff([Vj( circularIndex(j,:) ).x]);
-                        y = diff([Vj( circularIndex(j,:) ).y]);
-                        deltaS = cross([x,y,0], [0 0 1]);
-                        Sij = norm(deltaS);
-                        deltaS = deltaS(1:2) / Sij;
+                        % Get direction of grad(A)
+                        R = [0 -1; 1 0]; % +pi/2 rotation matrix
+                        v = ( R*(r(:,1) - r(:,3)) )';
+                        ua = r(:,1) - r(:,2); ub = r(:,3) - r(:,2);
+                        u = ua/norm(ub) + ub /norm(ub);
                         
-                        dualAreaElasticity = dualAreaElasticity + ...
-                            (Sij - tis.parameters.targetAreas/3) / 2 * deltaS;
+                        % Area elasticity
+                        area_elastic_term = area_elastic_term ...
+                            - 2 * (this_cell.area - tis.parameters.targetAreas) ...
+                            * v;
+                        
+                        % Perimeter elasticity
+                        perim_elastic_term = perim_elastic_term ...
+                            + 2 * (this_cell.perimeter) * u';
+                        
+                        % Active contraction
+                        active_contraction_term = active_contraction_term ...
+                            - 2 * this_cell.area * this_cell.contractility ...
+                            * v;
                         
                     end
                     
-                    % HARDCODED!!!
-                    % @todo: figure out how to set edge contractility!
-                    V(i,:) = 10*contractileTerm + 1e-5* dualAreaElasticity;
+                    gamma = tis.parameters.lineTension;
+                    kappa_a = tis.parameters.areaElasticity;
+                    kappa_p = tis.parameters.perimElasticity;
+                    
+                    V(i,:) = gamma*line_tension_term + kappa_a * area_elastic_term + ...
+                        kappa_p * perim_elastic_term + active_contraction_term;
+                    
+%                     if any([tis.cellsContainingVertex( vi ).cellID] == 30 )
+%                         im = tis.draw(); imagesc(im); axis square, hold on;
+%                         quiver(vcoords(i,2),vcoords(i,1),V(i,2),V(i,1),0,'w-');
+%                         keyboard;
+%                     end
                     
                 end
                 
                 if any(any(isnan( V ))), keyboard; end
                 
             end
+            
+            V( tis.parameters.fixed_verts, :) = 0;
+            
         end % get_velocities
         
         % ------ Simulation methods ---------
@@ -305,9 +358,8 @@ classdef Tissue
             % 
             % INPUT: tis - tissue
             %        p.targetArea - target area
-            %        p.targetLength - target edge length
+            %        p.lineTension - line tension
             %        p.areaElasticity - area elasticity
-            %        p.perimElasticity - area elasticity
             %        p.connect_opt - connectivity option ('purse string')
             %
             % @todo: Figure out how to error-handle bad inputs
@@ -316,6 +368,7 @@ classdef Tissue
             tis.parameters.fixed_verts = tis.numCellTouchingVertices < 3;
             conn = tis.adjMatrix(parameters.conn_opt);
             tis.connectivity = conn;
+            tis.interVertDist = squareform( pdist(tis.vert_coords) );
             
         end % setParameters
         
@@ -405,7 +458,7 @@ classdef Tissue
             % INPUT: tis - tissue
             %        C - (Nc x 1) vector of contractility values
             
-            if numel( tis.cells ) ~= numel( C )
+            if tis.cells.length ~= numel( C )
                 error('Number of contractility coeff and number of cells don''t match');
             end
             
@@ -413,7 +466,15 @@ classdef Tissue
             for i = 1:tis.cells.length
                 tis.cells( cellIDList{i} ) = ...
                     tis.cells( cellIDList{i} ).setContractility(C(i));
+%                 
+                    % @todo: need to figure out edge-contractiltiy and how
+                    % to inherit it from a cell
+                
             end
+            
+            % 
+%             for i = 1:numel(tis.verts)
+%             end
             
         end
         
@@ -464,12 +525,14 @@ classdef Tissue
                             neighbors = this_cell.getConnectedVertices( vt(i) );
                             I = vt.ismember( neighbors );
                             conn(i,I) = 1;
+                            
                         end
                     end
                     
                 otherwise
                     error('Unrecognized vertex connection option.')
             end
+            conn( logical(eye(num_vertices)) ) = 0;
             
         end % connectVertices
         
@@ -505,6 +568,19 @@ classdef Tissue
             end
             
         end %numCellTouchingVertices
+        
+%         function apVert = getApposingVertex( ~, c, v, vlist )
+%             % Return the appositing vertex to a cell and a connected vertex
+%             % @todo: comment!
+%             if numel(c) ~= 1 || numel(v) ~= 1,
+%                 error('Requires single inputs');
+%             end
+%             
+%             vTouchingCell = c.vertices;
+%             I = ~vlist.ismember( vTouchingCell );
+%             apVert = vlist(I);
+%             
+%         end
         
         % ----- Cell-cell connectivity ----
         

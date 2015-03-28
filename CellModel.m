@@ -157,12 +157,13 @@ classdef CellModel
             % the binary mask but vertices themselves
             
             I = cellm.draw_smallMask;
-            a = regionprops(I,'MajorAxisLength','MinorAxisLength');
-            if numel(a) == 1
-                a = a.MinorAxisLength/a.MajorAxisLength;
-            else
-                a = NaN;
-            end
+            a = 0;
+%             a = regionprops(I,'MajorAxisLength','MinorAxisLength');
+%             if numel(a) == 1
+%                 a = a.MinorAxisLength/a.MajorAxisLength;
+%             else
+%                 a = NaN;
+%             end
         end
         function a = get_area(cellm)
             % Calculates area from the vertex positions directly
@@ -182,10 +183,11 @@ classdef CellModel
             % Calculates centroid from the vertex positions directly
             % USAGE: ct = get_centroid(cellm)
             x = [cellm.vertices.x]; y = [cellm.vertices.y];
-            xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
-            cx = sum( ( x+xplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(x)/cellm.area;
-            cy = sum( ( y+yplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(y)/cellm.area;
-            centroid = [cx, cy];
+            G = polygeom(x,y);
+%             xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
+%             cx = sum( ( x+xplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(x)/cellm.area;
+%             cy = sum( ( y+yplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(y)/cellm.area;
+            centroid = [G(2), G(3)];
         end
         
         % ------- Cell set methods -------

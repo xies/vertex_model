@@ -1,7 +1,7 @@
-function cells = create_hexagons(HEX_ANGLE, HEX_NUM_X, HEX_NUM_Y)
+function cells = create_squares(HEX_NUM_X, HEX_NUM_Y)
 % Based on the parameters provided in we draw something in fourier space
 % and then invert to get hexagon in normal space
-
+%
 %The output is an image matrix of hexagons
 
 
@@ -26,27 +26,18 @@ ay = round_n(exty - BOUNDARY, 2);
 
 % the spatial frequency -> number of cells
 % this is arbitrary but at least resembles reasonable numbers
-rr = max(HEX_NUM_X, HEX_NUM_Y) * 2/3; 
+rr = max(HEX_NUM_X, HEX_NUM_Y);
 
 % size of the image to be fft'd
-imgsz = max(extx, exty); 
+imgsz = max(extx, exty);
 
-switch HEX_ANGLE
-    case 'horizontal'
-        rot = pi/2;
-    case 'vertical'
-        rot = 0;
-    case 'diagonal'
-        rot = pi/12;
-    otherwise
-        disp('No valid HEX_ANGLE selected!');
-end
+% rotate by pi/2
 
 % create the fourier transform of hexagons
 q = zeros(imgsz);
-for i=0:1:2
-    q(round(imgsz/2+1+rr*sin(2*pi/3*i+rot)), ...
-        round(imgsz/2+1+rr*cos(2*pi/3*i+rot)))=1;
+for i=0:3
+    q(round(imgsz/2 + 1 + rr*sin(i*pi/2 + pi/4)), ...
+        round(imgsz/2 + 1 + rr*cos(i*pi/2 + pi/4))) = 1;
 end
 %
 
@@ -63,10 +54,4 @@ cells = zeros(exty,extx);
 cells(exty/2-ay/2+1:exty/2+ay/2,extx/2-ax/2+1:extx/2+ax/2) = ...
    qq(imgsz/2-ay/2+1:imgsz/2+ay/2,imgsz/2-ax/2+1:imgsz/2+ax/2);
 
-% figure(1);clf;
-% imagesc(abs(qq));
-% colormap(gray)
-% 
-% figure(2);clf;
-% imagesc(abs(cells));
-% colormap(gray)
+end

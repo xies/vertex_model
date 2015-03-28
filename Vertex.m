@@ -8,6 +8,7 @@ classdef Vertex
     properties
         x
         y
+        contractility
     end
     
     methods
@@ -75,6 +76,17 @@ classdef Vertex
             end
             boolArr = ismember([tobeCompared.x], [list.x]);
             boolArr = boolArr & ismember([tobeCompared.y], [list.y]);
+        end
+        
+        % ---- Visualize ----
+        function draw( vArray )
+            % Draw locations of vertices using SCATTER.
+            
+            x = [vArray.x]; y = [vArray.y];
+            C = spring( numel(x) );
+            scatter( y, x, 100, C,'filled');
+            legend
+            
         end
         
     end
