@@ -232,6 +232,10 @@ classdef Tissue
             D = tis.interVertDist;
             conn = tis.connectivity;
             
+            gamma = tis.parameters.lineTension;
+            kappa_a = tis.parameters.areaElasticity;
+            kappa_p = tis.parameters.perimElasticity;
+            
             num_verts = size(vcoords,1);
             V = zeros( size(vcoords) );
             
@@ -255,8 +259,11 @@ classdef Tissue
                     for j = 1:numel(J)
                         % Line tension term
                         line_tension_term = line_tension_term + ...
-                            (vcoords(i,:) - [Vj(j).x Vj(j).y]) / D(i,J(j));
+                           gamma * (vcoords(i,:) - [Vj(j).x Vj(j).y]) / D(i,J(j));
                     end
+                    
+                    tis.draw('showVectors',{line_tension_term,i},'showActive');
+%                     keyboard
                     
                     % Go through all CELLS associated with current vertex,
                     % and calculate cell elasticity.
@@ -270,7 +277,7 @@ classdef Tissue
                         r = [sortedVt(I).x ; sortedVt(I).y];
                         
                         % Get direction of grad(A)
-                        R = [0 -1; 1 0]; % +pi/2 rotation matrix
+                        R = [0 -1; 1 0]; % pi/2 rotation matrix
                         v = ( R*(r(:,1) - r(:,3)) )';
                         ua = r(:,1) - r(:,2); ub = r(:,3) - r(:,2);
                         u = ua/norm(ub) + ub /norm(ub);
@@ -278,11 +285,20 @@ classdef Tissue
                         % Area elasticity
                         area_elastic_term = area_elastic_term ...
                             - 2 * (this_cell.area - tis.parameters.targetAreas) ...
-                            * v;
+                            * v * kappa_a;
+                        
+%                         if this_cell.cellID == 5
+%                             
+%                             tis = tis.activateCell( this_cell.cellID );
+%                             tis.draw('showVectors',{area_elastic_term,i},'showActive');
+%                             tis = tis.deactivateCell( this_cell.cellID );
+%                             keyboard
+%                             
+%                         end
                         
                         % Perimeter elasticity
                         perim_elastic_term = perim_elastic_term ...
-                            + 2 * (this_cell.perimeter) * u';
+                            + 2 * (this_cell.perimeter) * u' * kappa_p;
                         
                         % Active contraction
                         active_contraction_term = active_contraction_term ...
@@ -291,20 +307,14 @@ classdef Tissue
                         
                     end
                     
-                    gamma = tis.parameters.lineTension;
-                    kappa_a = tis.parameters.areaElasticity;
-                    kappa_p = tis.parameters.perimElasticity;
+                    tis.draw('showVectors',{area_elastic_term,i},'showActive');
+%                     keyboard
                     
-                    V(i,:) = gamma*line_tension_term + kappa_a * area_elastic_term + ...
-                        kappa_p * perim_elastic_term + active_contraction_term;
-                    
-%                     if any([tis.cellsContainingVertex( vi ).cellID] == 30 )
-%                         im = tis.draw(); imagesc(im); axis square, hold on;
-%                         quiver(vcoords(i,2),vcoords(i,1),V(i,2),V(i,1),0,'w-');
-%                         keyboard;
-%                     end
+                    V(i,:) = line_tension_term + area_elastic_term + ...
+                        perim_elastic_term + active_contraction_term;
                     
                 end
+                
                 
                 if any(any(isnan( V ))), keyboard; end
                 
@@ -344,6 +354,10 @@ classdef Tissue
                 % Move Vertex
                 tis.vertices(i) = tis.vertices(i).move(new_vcoords(i,:));
             end
+            
+            % Update distance maps
+            tis.interVertDist = squareform(pdist(tis.vert_coords));
+            
             % Advance time stamp by one
             if nargin > 2,
                 if ~strcmpi(varargin{1},'no_update'); tis.t = tis.t + 1; end
@@ -792,7 +806,6 @@ classdef Tissue
             
             if numel(tis) > 1, error('Can only handle single tissue; use tis.movie() to show movie.'); end
             
-            if nargin < 2, opt = 'none'; else, opt = varargin{1}; end % by default only show outlines
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)
@@ -802,18 +815,38 @@ classdef Tissue
                 
             % Show active cells as filled-ins
             M = zeros(tis.Xs,tis.Ys);
-            switch opt
-                case 'none'
-                    I = double(I) * 255;
-                case 'showActive'
-                    Acells = tis.getActiveCells;
-                    for i = 1:numel(Acells)
-                        M = M + Acells(i).drawMask;
+            
+            I = double(I) * 255;
+            imagesc(I), axis equal;
+            
+            % Highlight active cells
+            if any(strcmpi(varargin, 'showActive'))
+                Acells = tis.getActiveCells;
+                for i = 1:numel(Acells)
+                    M = M + Acells(i).drawMask;
+                end
+                M = M * 50;
+                I = I + M;
+            end
+            
+            ind = find( strcmpi(varargin,'showVectors') );
+            if ~isempty(ind)
+                if numel(varargin) < ind + 1, error('Need vector to draw'); end
+                V = varargin{ind+1};
+                if ~iscell(V)
+                    hold on;
+                    quiver(tis.vert_coords(:,2),tis.vert_coords(:,1), ...
+                        V(:,2),V(:,1),0,'w-');
+                else
+                    v = V{1};
+                    ID = V{2};
+                    if numel(ID) ~= size(v,1);
+                        error('# of vectors should equal # of origins')
                     end
-                    M = M * 50;
-                    I = double(I)*255 + M;
-                otherwise
-                    error('Unrecognized draw command/option')
+                    hold on
+                    quiver(tis.vert_coords(ID,2),tis.vert_coords(ID,1), ...
+                        v(:,2),v(:,1),0,'w-');
+                end
             end
             
         end

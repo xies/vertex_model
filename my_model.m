@@ -7,8 +7,8 @@ HEX_ANGLE = 'horizontal';
 %HEX_ANGLE = 'vertical';
 % HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 8;
-HEX_NUM_Y = 6;
+HEX_NUM_X = 12;
+HEX_NUM_Y = 5;
 
 %Approx run times for different dimentions for 4 steps
 %48 by 16 - 26 min
@@ -18,8 +18,8 @@ HEX_NUM_Y = 6;
 
 TARGET_AREA_FRACTION_OF_INIT = 1;
 AREA_ELASTICITY = 1e-4;
-PERIM_ELASTICITY = .01;
-LINE_TENSION = 10;
+PERIM_ELASTICITY = .005;
+LINE_TENSION = 2;
 
 CONNECTIVITY = 'purse string';
 %  CONNECTIVITY = 'network';
@@ -49,47 +49,47 @@ verts = tis.vert_coords;
 A0 = mean([tis.getCells.area]);
 P0 = mean([tis.getCells.perimeter]);
 
+% Set parameters and initialize distance matrix
 p.targetAreas = A0;
-p.targetPerimeters = P0;
+p.targetPerimeters = 0;
 p.lineTension = LINE_TENSION;
 p.areaElasticity = AREA_ELASTICITY;
 p.perimElasticity = PERIM_ELASTICITY;
 p.conn_opt = CONNECTIVITY;
-
 tis = tis.setParameters(p);
 
+% Checks for parameter settings:
+PERIM_ELASTICITY / AREA_ELASTICITY / A0 %Should be ~0.04
+
+LINE_TENSION / AREA_ELASTICITY /A0^(3/2) / 2 %Should be ~0.12
+
+% JITTER + Show initial conditions
 clear tissueArray;
 tissueArray(1:STEPS+1) = Tissue;
-tis_init = tis;
+tis_init = tis.jitterVertices(JITTERING_STD);
+tis_init.draw(); title('Initial condition')
 
 %% Euler scheme of model integration
 % @todo: not numerically stable!
 
 tis = tis_init; tissueArray(1) = tis; E = zeros(1,STEPS);
-tis = tis.jitterVertices(JITTERING_STD);
 
 C = zeros( 1, tis.cells.length );
-C( [8] ) = 0;
+% C( [6] ) = 2e-4;
 tis = tis.setContractility( C );
 
 for i = 1:STEPS
     
     verts = tis.vert_coords;
-    displacements = tis.get_velocities/1;
+    displacements = tis.get_velocities;
     verts = verts + displacements;
-    
-    
-    I = tis.draw(); imagesc(I); axis square, hold on;
-    scatter(tis.vert_coords(:,2),tis.vert_coords(:,1),100,'w')
-    quiver(tis.vert_coords(:,2),tis.vert_coords(:,1),displacements(:,2),displacements(:,1),0,'w-');
-    drawnow;
-    
+%     keyboard
     tis = tis.evolve( verts );
     tissueArray( i + 1 ) = tis;
     E(i) = tis.get_energy
     
+    tis.draw('showVectors',displacements,'showActive'); drawnow;
     i
-%     keyboard
     
 end
 

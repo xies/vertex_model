@@ -22,9 +22,9 @@ classdef Vertex
         end % Constructor
         
         % ------- Measurements --------
-        function d = distance(vertex_a,vertex_b)
+        function d = distance(vt1,vt2)
             % Euclidean distance
-            d = sqrt((vertex_a.x-vertex_b.x)^2 + (vertex_a.y-vertex_b.y)^2);
+            d = sqrt(([vt1.x]-[vt2.x])^2 + ([vt1.y]-[vt2.y])^2);
         end
         function v_array = sort(v_array,centroid)
             % Sort an array based on clock-wise angle wrt CENTROID
