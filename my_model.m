@@ -7,8 +7,8 @@ HEX_ANGLE = 'horizontal';
 %HEX_ANGLE = 'vertical';
 % HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 4;
-HEX_NUM_Y = 5;
+HEX_NUM_X = 16;
+HEX_NUM_Y = 8;
 
 %Approx run times for different dimentions for 4 steps
 %48 by 16 - 26 min
@@ -34,9 +34,9 @@ ELASTICITY = 'elastic';
 
 STEPS = 50; % number of constriction steps
 TIME_STEP = 1;
-VISCOSITY_COEFF = 5;
+VISCOSITY_COEFF = 20;
 
-JITTERING_STD = 10;
+JITTERING_STD = 1;
 
 %% Create hexagons and the CellGraph object
 

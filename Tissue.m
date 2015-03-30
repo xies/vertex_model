@@ -137,8 +137,6 @@ classdef Tissue
                     num_cells = max(unique(regions));
                     tis.cells = containers.Map('KeyType','int32','ValueType','any');
                     
-                    % Get vertices that are not on border
-                    [vert_coords,~] = tis.validate_vertices(regions,vert_coords);
                     num_vertices = size(vert_coords,1);
                     vertices(1:num_vertices) = Vertex; % preallocate empties
                     for i = 1:num_vertices
@@ -155,16 +153,16 @@ classdef Tissue
                     
                     % Get cell-ownership of vertices via 8-connected neighbors of
                     % vertices and REGIONS map
-                    [tis.vert_coords,vx2Cell] = tis.validate_vertices(regions);
+                    tis = tis.validate_vertices(regions);
                     
                     % Instatiate valid cells
                     for i = 1:num_cells
                         tis.cells(int32(i)) = ...
                             CellModel(int32(i), tis,...
-                            vertices( cellfun(@(x) any(x == i),vx2Cell) ), ...
+                            tis.vertices( cellfun(@(x) any(x == i),...
+                            {tis.vertices.cellIDs}) ), ...
                             centroids(i,:) );
                     end
-                    
                 end
                 
                 if ~isValid(tis)
@@ -219,7 +217,8 @@ classdef Tissue
             C = [tis.getCells.contractility];
             activeContractionTerm = nansum( C .* current_areas );
             
-            E = areaElasticTerm + perimElasticTerm + activeContractionTerm + lineTensionTerm;
+            E = areaElasticTerm + perimElasticTerm + ...
+                activeContractionTerm + lineTensionTerm;
 
         end % get_energy
         
@@ -258,14 +257,20 @@ classdef Tissue
             % For now, loop through; vectorize later?
             for i = 1:num_verts
                 
-                % Find connected vertices and cells
+                % Find connected vertices
                 vi = tis.vertices(i);
-                J = find(conn(i,:) == 1);
-                neighbors = tis.cellsContainingVertex( vi );
+                J = find(conn(i,:) == 1); % Idx of connected vertices
+                num_neighbors = numel( vi.cellIDs );
                 
                 % Only give nonzero velocities for vertices w/ more than 2
                 % cell neighbors (non-fixed cells)
-                if numel(neighbors) > 2
+                if num_neighbors > 2
+                    
+                    % Find conn cells (this is much faster)
+                    neighbors( num_neighbors ) = CellModel(); % initialize
+                    for j = 1:num_neighbors
+                        neighbors(j) = tis.cells(vi.cellIDs(j));
+                    end
                     
                     % Intialize
                     line_tension_term = [0 0];
@@ -317,9 +322,8 @@ classdef Tissue
                         
                     end
                     
-                    tis.draw('showVectors',{area_elastic_term,i},'showActive');
-%                     keyboard
-                    
+%                     tis.draw('showVectors',{area_elastic_term,i},'showActive');
+%                     drawnow;
                     V(i,:) = line_tension_term + area_elastic_term + ...
                         perim_elastic_term + active_contraction_term;
                     
@@ -330,7 +334,6 @@ classdef Tissue
                 
             end
             
-%             V( tis.parameters.fixed_verts, :) = 0;
             % Check that fixed vertices have not moved
             if any( V(tis.parameters.fixed_verts,:) > 0 ),
                 keyboard;
@@ -341,7 +344,8 @@ classdef Tissue
         % ------ Simulation methods ---------
         
         function tis = evolve( tis_old, new_vcoords, varargin)
-            % EVOLVE - updates and returns a new copy of the old tissue
+            % EVOLVE
+            % Updates and returns a new copy of the old tissue
             % configuration by moving all the vertex positions
             %   NOTA BENE: the old .cells container is COPIED and not
             %              direclty modified, since it's a reference object
@@ -401,6 +405,7 @@ classdef Tissue
         end % setParameters
         
         function tis = activateCell( tis, cellIDs, varargin)
+            % activateCell
             % Set specified cells (IDs) to "active = 1"
             % Usage: tissue = activateCell(tissue); Activates all cells
             %        tissue = activateCell(tissue, [1 2 3]); Activates the
@@ -455,6 +460,7 @@ classdef Tissue
         end % deactivateCell
         
         function tis = deactivateBorder(tis,n)
+            % deactivateBorder:
             % Deactivates the border (up to n order) cells
             % USAGE: tis = tis.deactivateBorder(n)
             %
@@ -717,12 +723,13 @@ classdef Tissue
         
         % ----- Vertex handling ------
         
-        function [vert_coords,vx2Cell] = validate_vertices(tis, regions, vert_coords)
+        function tis = validate_vertices(tis, regions)
             % Checks if vertices are not beyond image border, touching at 
             % least one cell, and return which cells a vertex is touching
             % Use only from Constructor!
-            if nargin < 3, vert_coords = tis.vert_coords; end
             
+            vert_coords = tis.vert_coords;
+            vertices = tis.vertices;
             % Check if vx is beyond boundary, if so, chuck it and
             % move on
             num_vertices = size(vert_coords,1);
@@ -731,22 +738,24 @@ classdef Tissue
                 x = vert_coords(i,1); y = vert_coords(i,2);
                 if x < 1 || x > tis.Xs || y < 1 || y > tis.Ys
                     vert_coords(i,:) = [];
+                    vertices(i) = [];
                     continue;
                 end
                 
                 % Extract 8 connected neighbors of this vertex
                 conn_pixels = regions(x-1:x+1, y-1:y+1);
                 neighbor_cells = unique(conn_pixels(conn_pixels > 0));
-                vx2Cell{i} = neighbor_cells;
+                vertices(i).cellIDs = neighbor_cells;
                 
                 % Check that vertex has at least 1 connected cell, if no,
                 % then chuck it
-                if isempty(vx2Cell{i})
+                if isempty(vertices(i).cellIDs)
                     vert_coords(i,:) = [];
-                    vx2Cell(i) = [];
+                    vertices(i) = [];
                 end
-                
             end
+            tis.vert_coords = vert_coords;
+            tis.vertices = vertices;
         end % validate_vertices
         
         function [vertices,vcoords] = merge_vertices(~,vcoords,vertices,...

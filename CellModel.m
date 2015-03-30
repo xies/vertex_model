@@ -126,8 +126,8 @@ classdef CellModel
             % Make sure centroid given by parentTissue is also centroid of
             % the vertices
             ct = cellm.get_centroid;
-            flag = flag && abs(ct(1) - cellm.centroid(1)) <= 1;
-            flag = flag && abs(ct(2) - cellm.centroid(2)) <= 1;
+            flag = flag && abs(ct(1) - cellm.centroid(1)) <= 2;
+            flag = flag && abs(ct(2) - cellm.centroid(2)) <= 2;
             if ~flag, keyboard; end
         end
         

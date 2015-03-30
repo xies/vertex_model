@@ -8,7 +8,7 @@ classdef Vertex
     properties
         x
         y
-        contractility
+        cellIDs
     end
     
     methods
