@@ -203,9 +203,7 @@ classdef Tissue
             % USAGE: E = get_energy(tis)
             %
             % Right now implements area elasticity, parameter elasticity,
-            % and active contractility. 
-            % 
-            % 
+            % and active contractility.
             
             p = tis.parameters; % get parameters
             
@@ -225,45 +223,64 @@ classdef Tissue
 
         end % get_energy
         
-        function V = get_velocities(tis)
-            % NOT VALIDATED
+        function V = get_force(tis)
+            % GET_FORCE
+            % Returns the forces as given by -grad(E) of current tissue
+            % configuration.
+            %
+            % USAGE: V = tis.get_velocities;
+            %
+            % Currently implements, for all cells c, vertices i (and its neighbor j):
+            %
+            %   - area elasticity:
+            %       Fa = -sum_c( k*(Ac-A0)*grad_i(Ac) )
+            %   - perimeter elasticity
+            %       Fp = -sum_c( -k*(Pc-P0)*grad_i(Pc)
+            %   - line tension:
+            %       Fl = -sum_i( sum_j(sij*grad_i(Dij)) )
+            %
+            % The graduent terms are implemented as Nagai (2000).
             
+            % Grab data
             vcoords = tis.vert_coords;
             D = tis.interVertDist;
             conn = tis.connectivity;
             
+            % Grap parameters
             gamma = tis.parameters.lineTension;
             kappa_a = tis.parameters.areaElasticity;
             kappa_p = tis.parameters.perimElasticity;
             
+            % Initialize
             num_verts = size(vcoords,1);
             V = zeros( size(vcoords) );
             
-            % For now, loop through; vectorize later
+            % For now, loop through; vectorize later?
             for i = 1:num_verts
                 
+                % Find connected vertices and cells
                 vi = tis.vertices(i);
                 J = find(conn(i,:) == 1);
                 neighbors = tis.cellsContainingVertex( vi );
+                
                 % Only give nonzero velocities for vertices w/ more than 2
-                % neighbors.
+                % cell neighbors (non-fixed cells)
                 if numel(neighbors) > 2
-                    Vj = tis.vertices(J);
-                    Vj = Vj.sort([vi.x, vi.y]);
                     
+                    % Intialize
                     line_tension_term = [0 0];
                     area_elastic_term = [0 0];
                     perim_elastic_term = [0 0];
                     active_contraction_term = [0 0];
                     
+                    % Generate line tension term in direction of the
+                    % inter-vertex vector
+                    % Since loop is only a few elements long, it's faster
+                    % than vectorized version
                     for j = 1:numel(J)
-                        % Line tension term
                         line_tension_term = line_tension_term + ...
-                           gamma * (vcoords(i,:) - [Vj(j).x Vj(j).y]) / D(i,J(j));
+                           gamma * (vcoords(i,:) - vcoords(J(j),:)) / D(i,J(j));
                     end
-                    
-                    tis.draw('showVectors',{line_tension_term,i},'showActive');
-%                     keyboard
                     
                     % Go through all CELLS associated with current vertex,
                     % and calculate cell elasticity.
@@ -276,31 +293,24 @@ classdef Tissue
                         I = wrap( [I-1 I I + 1] , numel(sortedVt)); % circularly index
                         r = [sortedVt(I).x ; sortedVt(I).y];
                         
-                        % Get direction of grad(A)
                         R = [0 -1; 1 0]; % pi/2 rotation matrix
-                        v = ( R*(r(:,1) - r(:,3)) )';
+                        v = ( R*(r(:,1) - r(:,3)) )'; % grad(A)
+                        
                         ua = r(:,1) - r(:,2); ub = r(:,3) - r(:,2);
-                        u = ua/norm(ub) + ub /norm(ub);
+                        u = ua / norm(ub) + ub /norm(ub); % Direction of grad(P)
                         
                         % Area elasticity
                         area_elastic_term = area_elastic_term ...
                             - 2 * (this_cell.area - tis.parameters.targetAreas) ...
                             * v * kappa_a;
                         
-%                         if this_cell.cellID == 5
-%                             
-%                             tis = tis.activateCell( this_cell.cellID );
-%                             tis.draw('showVectors',{area_elastic_term,i},'showActive');
-%                             tis = tis.deactivateCell( this_cell.cellID );
-%                             keyboard
-%                             
-%                         end
-                        
                         % Perimeter elasticity
                         perim_elastic_term = perim_elastic_term ...
                             + 2 * (this_cell.perimeter) * u' * kappa_p;
                         
-                        % Active contraction
+                        % Active contraction -- same form as area
+                        % elasticity but sets A0 = 0 and uses different
+                        % coefficient
                         active_contraction_term = active_contraction_term ...
                             - 2 * this_cell.area * this_cell.contractility ...
                             * v;
@@ -320,7 +330,11 @@ classdef Tissue
                 
             end
             
-            V( tis.parameters.fixed_verts, :) = 0;
+%             V( tis.parameters.fixed_verts, :) = 0;
+            % Check that fixed vertices have not moved
+            if any( V(tis.parameters.fixed_verts,:) > 0 ),
+                keyboard;
+            end
             
         end % get_velocities
         
@@ -385,10 +399,6 @@ classdef Tissue
             tis.interVertDist = squareform( pdist(tis.vert_coords) );
             
         end % setParameters
-        
-%         function tis = changeParameters( tis, new_p )
-%             tis.parameters = new_p;
-%         end
         
         function tis = activateCell( tis, cellIDs, varargin)
             % Set specified cells (IDs) to "active = 1"
@@ -480,15 +490,10 @@ classdef Tissue
             for i = 1:tis.cells.length
                 tis.cells( cellIDList{i} ) = ...
                     tis.cells( cellIDList{i} ).setContractility(C(i));
-%                 
                     % @todo: need to figure out edge-contractiltiy and how
                     % to inherit it from a cell
                 
             end
-            
-            % 
-%             for i = 1:numel(tis.verts)
-%             end
             
         end
         
@@ -582,19 +587,6 @@ classdef Tissue
             end
             
         end %numCellTouchingVertices
-        
-%         function apVert = getApposingVertex( ~, c, v, vlist )
-%             % Return the appositing vertex to a cell and a connected vertex
-%             % @todo: comment!
-%             if numel(c) ~= 1 || numel(v) ~= 1,
-%                 error('Requires single inputs');
-%             end
-%             
-%             vTouchingCell = c.vertices;
-%             I = ~vlist.ismember( vTouchingCell );
-%             apVert = vlist(I);
-%             
-%         end
         
         % ----- Cell-cell connectivity ----
         
@@ -801,6 +793,11 @@ classdef Tissue
             %
             % USAGE: I = draw(tis);
             %        I = draw(tis,'showActive');
+            %           Highlights currentlly "active" cells
+            %        I = draw(tis,'showVectors',V);
+            %           Shows vector field V over all vertices
+            %        I = draw(tis,'showVectors',{v,ID});
+            %           Shows only single vector v at vertex == ID
             %
             % Cannot handle more than one tissue.
             
@@ -829,15 +826,19 @@ classdef Tissue
                 I = I + M;
             end
             
+            % Display vector field
             ind = find( strcmpi(varargin,'showVectors') );
             if ~isempty(ind)
                 if numel(varargin) < ind + 1, error('Need vector to draw'); end
                 V = varargin{ind+1};
+                % If input is not a cell object, then display all vectors
                 if ~iscell(V)
                     hold on;
                     quiver(tis.vert_coords(:,2),tis.vert_coords(:,1), ...
                         V(:,2),V(:,1),0,'w-');
                 else
+                    % If it's a cell obj, then only the given vertex will
+                    % have a vector over it
                     v = V{1};
                     ID = V{2};
                     if numel(ID) ~= size(v,1);
