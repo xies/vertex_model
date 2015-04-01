@@ -44,8 +44,6 @@ classdef Tissue
     %   --- Vertex-cell connectivity ---
     %       cellsContainingVertex - returns all cells that contain input
     %              vertex
-    %       numCellTouchingVertices - returns # of cells touching input
-    %              vertices (vector)
     %
     %   --- Cell-cell connectivity ---
     %       connected - whether two cells share one vertex
@@ -118,7 +116,6 @@ classdef Tissue
                     tis.Xs = tis_old.Xs; tis.Ys = tis_old.Ys;
                     tis.merge_threshold_in_px = tis_old.merge_threshold_in_px;
                     tis.t = tis_old.t;
-                    tis.vertices = tis_old.vertices;
                     tis.vert_coords = tis_old.vert_coords;
                     tis.connectivity = tis_old.connectivity;
                     tis.interVertDist = tis_old.interVertDist;
@@ -128,39 +125,37 @@ classdef Tissue
                     % Map, creating a brand new Map!
                     % DO NOT REMOVE
                     tis.cells = [tis_old.cells; containers.Map()];
+                    tis.vertices = [tis_old.vertices; containers.Map()];
                     
                 else % Else construct from scratch
                     
                     tis.t = t;
                     tis.centroids = centroids;
                     tis.Xs = size(regions,1); tis.Ys = size(regions,2);
-                    num_cells = max(unique(regions));
-                    tis.cells = containers.Map('KeyType','int32','ValueType','any');
                     
-                    num_vertices = size(vert_coords,1);
-                    vertices(1:num_vertices) = Vertex; % preallocate empties
-                    for i = 1:num_vertices
-                        vertices(i) = Vertex(vert_coords(i,1),vert_coords(i,2));
-                    end
-                    
+                    tis.vertices = containers.Map('KeyType','int32','ValueType','any');
+
                     % Merge vertices that are too close to each other
                     % @todo: This requires speedup
                     tis.merge_threshold_in_px = 6;
-                    [vertices,vert_coords] = tis.merge_vertices(vert_coords,vertices,...
-                        tis.merge_threshold_in_px);
+                    vert_coords = tis.merge_vertices( ...
+                        vert_coords, tis.merge_threshold_in_px);
                     tis.vert_coords = vert_coords;
-                    tis.vertices = vertices;
                     
-                    % Get cell-ownership of vertices via 8-connected neighbors of
-                    % vertices and REGIONS map
-                    tis = tis.validate_vertices(regions);
+                    % Instantiate valid vertices
+                    tis = tis.make_vertices(regions);
                     
+                    % Initialize a Map object to hold CellModel
+                    num_cells = max(unique(regions));
+                    tis.cells = containers.Map('KeyType','int32','ValueType','any');
                     % Instatiate valid cells
+                    vIDlist = tis.vertices.keys;
+                    vIDlist = [vIDlist{:}];
                     for i = 1:num_cells
-                        tis.cells(int32(i)) = ...
+                        tis.cells(i) = ...
                             CellModel(int32(i), tis,...
-                            tis.vertices( cellfun(@(x) any(x == i),...
-                            {tis.vertices.cellIDs}) ), ...
+                            vIDlist( ...
+                            cellfun(@(x) any(x == i), {tis.getVertices.cellIDs})), ... % Vertex keys
                             centroids(i,:) );
                     end
                 end
@@ -178,18 +173,25 @@ classdef Tissue
             %   1) vertices and vert_coords match and are ordered correctly
             %   2) vertices and the unique set of cell-owned vertices also
             %      match (not ordered)
+            %   3) dimensions of connectivity and interVertDist are
+            %      consistent with vert_coords
             
             flag = 1;
             % vertices and vert_coords match
-            vx = [tis.vertices.x]; vy = [tis.vertices.y];
+            vx = [tis.getVertices.x]; vy = [tis.getVertices.y];
             flag = flag & all(all(cat(2,vx',vy') == tis.vert_coords));
             
             % vertices and the set of cell vertices match
             cells = tis.getCells;
-            vt = [cells.vertices];
+            vt = tis.getVertices( unique([cells.vIDs]) );
             vx = unique([vt.x]); vy = unique([vt.y]);
-            flag = flag && all(vx == unique( [tis.vertices.x] ) );
-            flag = flag && all(vy == unique( [tis.vertices.y] ) );
+            flag = flag && all(vx == unique( [tis.getVertices.x] ) );
+            flag = flag && all(vy == unique( [tis.getVertices.y] ) );
+            
+            if ~isempty( tis.connectivity)
+                flag = flag && tis.vertices.length == mean(size(tis.connectivity));
+                flag = flag && tis.vertices.length == mean(size(tis.interVertDist));
+            end
             
         end
         
@@ -254,11 +256,13 @@ classdef Tissue
             num_verts = size(vcoords,1);
             V = zeros( size(vcoords) );
             
+            vIDList = tis.vertices.keys;
+            vIDList = [vIDList{:}];
             % For now, loop through; vectorize later?
             for i = 1:num_verts
                 
                 % Find connected vertices
-                vi = tis.vertices(i);
+                vi = tis.vertices(vIDList(i));
                 J = find(conn(i,:) == 1); % Idx of connected vertices
                 num_neighbors = numel( vi.cellIDs );
                 
@@ -267,7 +271,7 @@ classdef Tissue
                 if num_neighbors > 2
                     
                     % Find conn cells (this is much faster)
-                    neighbors( num_neighbors ) = CellModel(); % initialize
+                    neighbors(1:num_neighbors) = CellModel(); % initialize
                     for j = 1:num_neighbors
                         neighbors(j) = tis.cells(vi.cellIDs(j));
                     end
@@ -283,9 +287,12 @@ classdef Tissue
                     % Since loop is only a few elements long, it's faster
                     % than vectorized version
                     for j = 1:numel(J)
-                        line_tension_term = line_tension_term + ...
+                        line_tension_term = line_tension_term - ...
                            gamma * (vcoords(i,:) - vcoords(J(j),:)) / D(i,J(j));
                     end
+                    
+%                     tis.draw('showVectors',{-line_tension_term,i},'showActive');
+%                     keyboard
                     
                     % Go through all CELLS associated with current vertex,
                     % and calculate cell elasticity.
@@ -293,7 +300,11 @@ classdef Tissue
                     for this_cell = neighbors
                         
                         % Need to sort vertices counter-clockwise
-                        sortedVt = this_cell.vertices;
+                        sortedVt = tis.getVertices( this_cell.vIDs );
+                        sortedVt = sortedVt.sort( this_cell.centroid );
+                        
+                        % Find this current vertex and its immediate
+                        % neighboring vertices
                         I = find( vi == sortedVt );
                         I = wrap( [I-1 I I + 1] , numel(sortedVt)); % circularly index
                         r = [sortedVt(I).x ; sortedVt(I).y];
@@ -320,22 +331,29 @@ classdef Tissue
                             - 2 * this_cell.area * this_cell.contractility ...
                             * v;
                         
+                        % DEBUGGING
+%                         tis = tis.activateCell( this_cell.cellID );
+%                         tis.draw('showVectors',{v,i},'showActive');
+%                         tis = tis.deactivateCell( this_cell.cellID );
+%                         hold on, sortedVt(I).draw;
+%                         keyboard
+                        
                     end
                     
-%                     tis.draw('showVectors',{area_elastic_term,i},'showActive');
-%                     drawnow;
                     V(i,:) = line_tension_term + area_elastic_term + ...
                         perim_elastic_term + active_contraction_term;
                     
+%                     tis.draw('showVectors',{V(i,:),i},'showActive');
+%                     drawnow
+
                 end
-                
                 
                 if any(any(isnan( V ))), keyboard; end
                 
             end
             
             % Check that fixed vertices have not moved
-            if any( V(tis.parameters.fixed_verts,:) > 0 ),
+            if any( V(tis.parameters.fixed_verts,:) > 0 )
                 keyboard;
             end
             
@@ -353,33 +371,38 @@ classdef Tissue
             % USAGE: new_tissue = old_tissue( new_vcoords );
             %        new_tissue = old_tissue( new_vcoords ,'no_update');
             
-            if size(new_vcoords,1) ~= numel(tis_old.vertices)
+            if size(new_vcoords,1) ~= tis_old.vertices.length
                 error('Size of new vertex list must match old vertices')
             end
             tis = Tissue(tis_old);
             tis.vert_coords = new_vcoords;
+            vIDList = tis.vertices.keys; vIDList = [vIDList{:}];
             
-            for i = 1:numel(tis.vertices)
-                
+            for i = 1:numel(vIDList)
                 % Move vertices in CellModels
-                v = tis.vertices(i);
-                cContainV = [tis.cellsContainingVertex(v).cellID];
-                for c = cContainV
+                v = tis.vertices(vIDList(i));
+                cContainV = v.cellIDs;
+                for c = cContainV'
                     tis.cells( c ) = ...
-                        tis.cells( c ).moveVertex(v,new_vcoords(i,:));
+                        tis.cells(c).updateCell( tis );
                 end
                 
                 % Move Vertex
-                tis.vertices(i) = tis.vertices(i).move(new_vcoords(i,:));
+                tis.vertices(vIDList(i)) = ...
+                    tis.vertices(vIDList(i)).move(new_vcoords(i,:));
             end
             
             % Update distance maps
             tis.interVertDist = squareform(pdist(tis.vert_coords));
             
+            % Consistency check
+            if ~tis.isValid, keyboard; end
+            
             % Advance time stamp by one
             if nargin > 2,
                 if ~strcmpi(varargin{1},'no_update'); tis.t = tis.t + 1; end
             end
+            
         end % evolve
         
         function tis = setParameters(tis,parameters)
@@ -397,7 +420,8 @@ classdef Tissue
             % @todo: Figure out how to error-handle bad inputs
             
             tis.parameters = parameters;
-            tis.parameters.fixed_verts = tis.numCellTouchingVertices < 3;
+            tis.parameters.fixed_verts = cellfun( ...
+                @numel,{tis.getVertices.cellIDs}) < 3;
             conn = tis.adjMatrix(parameters.conn_opt);
             tis.connectivity = conn;
             tis.interVertDist = squareform( pdist(tis.vert_coords) );
@@ -534,7 +558,7 @@ classdef Tissue
             % 
             % @todo: implement 'apical' and 'both'
             
-            vt = tis.vertices;
+            vt = tis.getVertices;
             num_vertices = numel(vt);
             if nargin < 3
                 cells = tis.getCells;
@@ -543,14 +567,14 @@ classdef Tissue
             switch opt
                 case 'purse string'
                     % Connect the 'interfaces' of cells only
+                    % @todo: SLOWWW!!!
                     conn = zeros(num_vertices);
                     
                     for i = 1:num_vertices
                         for this_cell = cells
-                            neighbors = this_cell.getConnectedVertices( vt(i) );
-                            I = vt.ismember( neighbors );
+                            connectedVertIDs = this_cell.getConnectedVertices( vt(i) );
+                            I = ismember([vt.ID], connectedVertIDs);
                             conn(i,I) = 1;
-                            
                         end
                     end
                     
@@ -568,31 +592,15 @@ classdef Tissue
             %
             % Usage: touchingCells = tis.cellsContainingVertex( vert )
             
-            cells = tis.getCells;
-            verts = {cells.vertices};
-            I = cellfun( @(x) any( x == vert), verts );
-            cellsThatTouch = cells(I);
+            if numel(vert) > 1, error('Can''t do more than 1 vertex.'); end
+            N = numel(vert.cellIDs);
+            cellsThatTouch(1:N) = CellModel();
+            for i = 1:N
+                cellsThatTouch(i) = tis.cells( vert.cellIDs(i) );
+            end
             
             if isempty(cellsThatTouch), keyboard; end
         end % cellsContainingVertex
-        
-        function num_touch = numCellTouchingVertices(tis)
-            % Return the # of cells that are touching all vertices in the
-            % tissue.
-            %
-            % USAGE:
-            %  num_touching = numCellsTouchingVertices( tis )
-            num_vertices = numel(tis.vertices);
-            num_touch = zeros(1,num_vertices);
-            % Go through all vertices
-            for v = 1:num_vertices
-                vert = tis.vertices(v);
-                % Go through all cells and find ones containing vert
-                c = tis.cellsContainingVertex( vert );
-                num_touch(v) = numel(c);
-            end
-            
-        end %numCellTouchingVertices
         
         % ----- Cell-cell connectivity ----
         
@@ -689,8 +697,7 @@ classdef Tissue
             end
         end % connected
         
-        
-        % ----- Cell handling ------
+        % ----- Cell handling and measurements ------
         
         function cells = getCells( tis, varargin )
             % Returns cells from tissue as an array.
@@ -711,7 +718,7 @@ classdef Tissue
                     cells(i) = tis.cells( cellID(i) );
                 end
             end
-        end
+        end % getCells
         
         function cells = getActiveCells(tis)
             % Return all active cells in the tissue
@@ -723,47 +730,59 @@ classdef Tissue
         
         % ----- Vertex handling ------
         
-        function tis = validate_vertices(tis, regions)
+        function tis = make_vertices(tis, regions)
             % Checks if vertices are not beyond image border, touching at 
             % least one cell, and return which cells a vertex is touching
             % Use only from Constructor!
             
-            vert_coords = tis.vert_coords;
-            vertices = tis.vertices;
-            % Check if vx is beyond boundary, if so, chuck it and
-            % move on
-            num_vertices = size(vert_coords,1);
+			% Check that tis.vertices is empty -- or else this is not
+			% called from the Constructor.
+			if tis.vertices.length > 0
+				error('Don''t call this function outside of construtor');
+			end
+
+			vert_coords = tis.vert_coords;
+            num_vertices = size( vert_coords,1 );
             for i = num_vertices:-1:1
                 
                 x = vert_coords(i,1); y = vert_coords(i,2);
+            	
+				% Check if vx is beyond boundary, if so, chuck it and
+            	% move on
                 if x < 1 || x > tis.Xs || y < 1 || y > tis.Ys
                     vert_coords(i,:) = [];
-                    vertices(i) = [];
                     continue;
                 end
                 
                 % Extract 8 connected neighbors of this vertex
-                conn_pixels = regions(x-1:x+1, y-1:y+1);
+                conn_pixels = regions(round(x)-1:round(x)+1, ...
+                    round(y)-1:round(y)+1);
                 neighbor_cells = unique(conn_pixels(conn_pixels > 0));
-                vertices(i).cellIDs = neighbor_cells;
                 
                 % Check that vertex has at least 1 connected cell, if no,
                 % then chuck it
-                if isempty(vertices(i).cellIDs)
+                if isempty(neighbor_cells)
                     vert_coords(i,:) = [];
-                    vertices(i) = [];
+                else
+                    % If is not empty- then instantiate a Vertex
+                    % and add it to the Map (handle object so should
+                    % be modified in all spaces)
+                    tis.vertices( int32(i) ) = ...
+                        Vertex( int32(i), vert_coords(i,1), vert_coords(i,2), ...
+                        neighbor_cells);
                 end
             end
+            
             tis.vert_coords = vert_coords;
-            tis.vertices = vertices;
-        end % validate_vertices
+            
+        end % make_vertices
         
-        function [vertices,vcoords] = merge_vertices(~,vcoords,vertices,...
+        function vcoords = merge_vertices(~,vcoords, ...
                 merge_threshold_in_px)
             % Merge vertices that are closer than the specified threshold
             %
             % USAGE:
-            % [vts, vcoords] = tis.merge_vertices( vcoords, vts, threshold)
+            % vcoords = tis.merge_vertices( vcoords,threshold)
             %
             % Use only from constructor
             
@@ -772,19 +791,19 @@ classdef Tissue
             vertDist = squareform(pdist(vcoords));
             vertDist( logical(eye(num_vertices)) ) = NaN;
             
+			% Loop merge function until no pairs of vertices are closer than
+			% the threshold
             while any(any(vertDist <= merge_threshold_in_px))
                 
                 % Find a set of vertices to merge
                 [I,J] = find(vertDist <= merge_threshold_in_px,1,'first');
                 tobeMergedInd = [I,find(vertDist(I,:) <= merge_threshold_in_px)];
-                mergedV = vertices( tobeMergedInd ).merge;
+				mergedV = [mean( vcoords(tobeMergedInd,:) )];
                 
                 % Delete old ummerged vertices
-                vertices(tobeMergedInd) = [];
                 vcoords(tobeMergedInd,:) = [];
                 % Add new merged vertex
-                vertices = [vertices mergedV];
-                vcoords = cat(1,vcoords, [mergedV.x mergedV.y] );
+                vcoords = cat(1,vcoords,mergedV );
                 
                 % update the distance maps
                 num_vertices = size(vcoords,1);
@@ -793,6 +812,23 @@ classdef Tissue
                 
             end
         end % merge_vertices
+        
+        function verts = getVertices( tis , IDs )
+            % Returns all or specified subset of vertices as array
+            % USAGE: vts = tis.getVertices
+            % 	     vts = tis.getVertices( IDs )
+            
+            % Return all Vertex objects as an array
+            if nargin < 2
+                verts = tis.vertices.values;
+                verts = [verts{:}];
+            else
+                verts(1:numel(IDs)) = Vertex();
+                for i = 1:numel(IDs)
+                    verts(i) = tis.vertices( IDs(i) );
+                end
+            end
+        end % getVertices
         
         %------ Visualization -----
         
@@ -815,25 +851,24 @@ classdef Tissue
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)
-                I = I + tis.cells(cellIDList{i}).draw;
+                I = I + tis.cells(cellIDList{i}).draw(tis);
                 I = logical(I);
             end
-                
-            % Show active cells as filled-ins
-            M = zeros(tis.Xs,tis.Ys);
             
             I = double(I) * 255;
-            imagesc(I), axis equal;
-            
             % Highlight active cells
             if any(strcmpi(varargin, 'showActive'))
+                % Show active cells as filled-ins
+                M = zeros(tis.Xs,tis.Ys);
                 Acells = tis.getActiveCells;
                 for i = 1:numel(Acells)
-                    M = M + Acells(i).drawMask;
+                    M = M + Acells(i).drawMask(tis);
                 end
                 M = M * 50;
                 I = I + M;
             end
+            
+            imagesc(I), axis equal;
             
             % Display vector field
             ind = find( strcmpi(varargin,'showVectors') );

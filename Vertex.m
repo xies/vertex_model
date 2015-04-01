@@ -5,6 +5,10 @@ classdef Vertex
     %
     % xies@mit.edu March 2015
     
+    properties (SetAccess = private)
+        ID %key to the Map owned by Tissue.m (CellModels hold keys)
+    end
+    
     properties
         x
         y
@@ -13,11 +17,13 @@ classdef Vertex
     
     methods
         
-        function obj = Vertex(x,y)
+        function obj = Vertex(ID,x,y,cellIDs)
             % Vertex constructor, needs x and y coordinates as input
             if nargin > 0
+                obj.ID = ID;
                 obj.x = x;
                 obj.y = y;
+                obj.cellIDs = cellIDs;
             end
         end % Constructor
         
@@ -42,18 +48,19 @@ classdef Vertex
             %Specify new position
             vx.x = new_pos(1); vx.y = new_pos(2);
         end
-        function v = displace_by(v,vector)
-            % Move vertex by a displacement vector [dx, dy]
-            v.x = v.x + vector(1);
-            v.y = v.y + vector(2);
-        end
         
-        function vx = merge(v_array)
-            % Merge an array of vertices by finding mean value
-            vx = Vertex( ...
-                round( mean([v_array.x]) ), ...
-                round( mean([v_array.y]) ) );
-        end
+%         function v = displace_by(v,vector)
+%             % Move vertex by a displacement vector [dx, dy]
+%             v.x = v.x + vector(1);
+%             v.y = v.y + vector(2);
+%         end
+        
+%         function vx = merge(v_array)
+%             % Merge an array of vertices by finding mean value
+%             vx = Vertex( ...
+%                 round( mean([v_array.x]) ), ...
+%                 round( mean([v_array.y]) ) );
+%         end
         
         % ------- Comparators --------
         function boolArr = eq(vertex_a,vertices)
@@ -74,8 +81,7 @@ classdef Vertex
             if isempty(list) || isempty(tobeCompared)
                 boolArr = []; return;
             end
-            boolArr = ismember([tobeCompared.x], [list.x]);
-            boolArr = boolArr & ismember([tobeCompared.y], [list.y]);
+            boolArr = ismember([tobeCompared.ID], [list.ID]);
         end
         
         % ---- Visualize ----
@@ -85,7 +91,7 @@ classdef Vertex
             x = [vArray.x]; y = [vArray.y];
             C = spring( numel(x) );
             scatter( y, x, 100, C,'filled');
-            legend
+%             legend(
             
         end
         

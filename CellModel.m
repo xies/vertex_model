@@ -7,10 +7,9 @@ classdef CellModel
     %
     %   (private)
     %      cellID - key used in parent Map (int32)
-    %      parentTissue - Tissue object
     %   (public)
     %      centroid - centroid coord
-    %      vertices - array of Vertex objects
+    %      vIDs - array of indices to Vertex objects
     %      area     - cell area
     %      perimeter  - perimeter
     %      anisotropy - ellipsoid anisotropy
@@ -59,7 +58,6 @@ classdef CellModel
         
         % IDs
         cellID	% cellID in EDGE
-        parentTissue    % the Tissue parent
         
     end % Private properties (can't be set by outside methods)
     
@@ -67,7 +65,7 @@ classdef CellModel
         
         % measurements
         centroid	% centroid of cell
-        vertices	% vertices, xy-coordinates
+        vIDs	% IDs to Vertex objects
         
         contractility % current contractility
         anisotropy  % anisotropy (shape)
@@ -80,7 +78,7 @@ classdef CellModel
     
     methods
         
-        function obj = CellModel(ID,parent,vt,ct)
+        function obj = CellModel(ID,parent,vIDs,ct)
             % CellModel - Contructs object of CellModel class.
             % Parent is Tissue.m
             % 
@@ -88,7 +86,7 @@ classdef CellModel
             %
             % INPUT: ID - int32 cellID
             %        parent - parent Tissue.m
-            %        verts - array of Vertex objects
+            %        verts - array of keys to tis.vertices map
             %        centroid - (x,y) coord of centroid
             
             if nargin > 0
@@ -96,26 +94,29 @@ classdef CellModel
                 % Inherit properties from tissue
                 obj.cellID = ID;
                 obj.centroid = ct;
-                obj.vertices = sort(vt,ct); %sort vertices so they're clockwise (implemented in Vertex.m)
-                obj.parentTissue = parent;
                 
-                % Make measurements based on current setting
-                obj.anisotropy = obj.get_anisotropy;
-                obj.perimeter = obj.get_perimeter;
-                obj.area = obj.get_area;
-                
+                % Sort all vertices
+                vts = parent.getVertices( vIDs );
+                vts = vts.sort( obj.centroid );
+                obj.vIDs = [vts.ID];
+
                 % Put in default values
                 obj.contractility = 0;
                 obj.isActive = 0;
                 
-                if ~obj.isValid
+                % -- set measurements ---
+                obj.area = obj.get_area(parent);
+                obj.anisotropy = obj.get_anisotropy(parent);
+                obj.perimeter = obj.get_perimeter(parent);
+                
+                if ~obj.isValid(parent)
                     error('Cannot contruct cellModel, check inputs');
                 end
             end
             
         end % Constructor
         
-        function flag = isValid(cellm)
+        function flag = isValid(cellm,tis)
             % Constructor checker -- see that everything is the right class/
             % dimensions and current centroid is the centroid of current
             % set of vertices
@@ -125,7 +126,7 @@ classdef CellModel
             flag = all(size(cellm.centroid) == [1,2]);
             % Make sure centroid given by parentTissue is also centroid of
             % the vertices
-            ct = cellm.get_centroid;
+            ct = cellm.get_centroid(tis);
             flag = flag && abs(ct(1) - cellm.centroid(1)) <= 2;
             flag = flag && abs(ct(2) - cellm.centroid(2)) <= 2;
             if ~flag, keyboard; end
@@ -147,48 +148,51 @@ classdef CellModel
         
         % --------- Measurements ---------
         
-        function a = get_anisotropy(cellm)
+        function a = get_anisotropy(cellm,tis)
             % Measures anisotropy of current cell by drawing a mask of it
             % and running regionprops
             % 
-            % USAGE: a = get_anisotropy(cellm)
+            % USAGE: a = get_anisotropy(cellm,tis)
             %
             % @todo: Fix this situation where object breaks by not using
             % the binary mask but vertices themselves
-            
-            I = cellm.draw_smallMask;
-            a = 0;
-%             a = regionprops(I,'MajorAxisLength','MinorAxisLength');
-%             if numel(a) == 1
-%                 a = a.MinorAxisLength/a.MajorAxisLength;
-%             else
-%                 a = NaN;
-%             end
-        end
-        function a = get_area(cellm)
+            a = 1;
+        end % get_anisotropy
+        
+        function a = get_area(cellm,tis)
             % Calculates area from the vertex positions directly
-            % USAGE: a = get_area(cellm)
-            x = [cellm.vertices.x]; y = [cellm.vertices.y];
-            xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
-            a = sum( (x.*yplus1) - (y.*xplus1) )/2;
-        end
-        function p = get_perimeter(cellm)
+            %
+            % USAGE: a = get_area(cellm,tis)
+            %
+            % See also: POLYAREA
+            
+            vt = tis.getVertices( cellm.vIDs );
+%             vt = sort(vt, cellm.centroid); % sort counter-clockwise
+            x = [vt.x]; y = [vt.y];
+            a = polyarea( x, y);
+        end % get_area
+        
+        function p = get_perimeter(cellm,tis)
             % Calculates perimeter from the vertex positions directly
-            % USAGE: p = get_perimeter(cellm)
-            x = [cellm.vertices.x]; y = [cellm.vertices.y];
+            %
+            % USAGE: p = get_perimeter(cellm,tis)
+            
+            vt = tis.getVertices( cellm.vIDs );
+            x = [vt.x]; y = [vt.y];
             xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
             p = sum( sqrt((x-xplus1).^2 + (y-yplus1).^2) );
-        end
-        function centroid = get_centroid(cellm)
+        end % get_perimeter
+        
+        function centroid = get_centroid(cellm,tis)
             % Calculates centroid from the vertex positions directly
-            % USAGE: ct = get_centroid(cellm)
-            x = [cellm.vertices.x]; y = [cellm.vertices.y];
+            % USAGE: ct = get_centroid(cellm,tis)
+            
+            vt = tis.getVertices( cellm.vIDs );
+%             vt = sort(vt, cellm.centroid); % sort counter-clockwis
+            x = [vt.x]; y = [vt.y];
             G = polygeom(x,y);
-%             xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
-%             cx = sum( ( x+xplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(x)/cellm.area;
-%             cy = sum( ( y+yplus1 ).*( x.*yplus1 - xplus1.*y ) )/numel(y)/cellm.area;
             centroid = [G(2), G(3)];
-        end
+        end % get_centroid
         
         % ------- Cell set methods -------
         
@@ -200,16 +204,15 @@ classdef CellModel
             cellm.contractility = C;
         end
         
-        function cellm = updateCell(cellm)
-            % Updates the centroid to the current centroid, area,
+        function cellm = updateCell(cellm,tis)
+            % Updates the CellModel to the current centroid, area,
             % perimeter, anisotropy based on the new list of vertices.
             % 
-            % USAGE: cell = updateCentroid(cell)
-            ct = cellm.get_centroid;
-            cellm.centroid = ct;
-            cellm.area = cellm.get_area;
-            cellm.perimeter = cellm.get_perimeter;
-            cellm.anisotropy = cellm.get_anisotropy;
+            % USAGE: cell = cell.updateCell(tis)
+            cellm.centroid = cellm.get_centroid( tis );
+            cellm.area = cellm.get_area( tis );
+            cellm.perimeter = cellm.get_perimeter( tis );
+            cellm.anisotropy = cellm.get_anisotropy( tis );
             
         end
         
@@ -222,26 +225,6 @@ classdef CellModel
             angles = atan2( ct(:,1)-point(2), ct(:,2)-point(1));
             [~,I] = sort(angles);
             c_array = c_array(I);
-            
-        end
-        
-        
-        % --------- Vertex set methods --------------
-        
-        function c = moveVertex(c,vert,new_vcoord)
-            % Move vertex contained in input cell and the update all
-            % properties of the cell to match new vertices
-            %
-            % USAGE: c = c.moveVertex(vertex,new_vcoord);
-            
-            if ~any(c.vertices == vert)
-                error('vertex does not belong to this cell');
-            end
-            
-            I = find(c.vertices == vert);
-            c.vertices(I) = c.vertices(I).move( new_vcoord );
-            c = c.updateCell;
-            
         end
         
         % ---------  Connectivity --------
@@ -272,43 +255,45 @@ classdef CellModel
         
         function neighborVerts = getConnectedVertices( cellm, v)
             % Returns all the edge-connected vertex of v, as seen by cellm
-            % USAGE: neighborVs = getConnectedVertices(cellm,v)
+            % USAGE: neighborVs = getConnectedVertices(cellm,tis,v)
             
-            I = find(cellm.vertices == v);
+            I = find(cellm.vIDs == v.ID);
             if isempty(I), neighborVerts = []; return; end
             
             if I == 1
-                neighborVerts = [cellm.vertices(end), cellm.vertices(2)];
-            elseif I == numel( cellm.vertices )
-                neighborVerts = [cellm.vertices(end-1), cellm.vertices(1)];
+                neighborVerts = [cellm.vIDs(end), cellm.vIDs(2)];
+            elseif I == numel( cellm.vIDs )
+                neighborVerts = [cellm.vIDs(end-1), cellm.vIDs(1)];
             else
-                neighborVerts = [cellm.vertices(I-1), cellm.vertices(I+1)];
+                neighborVerts = [cellm.vIDs(I-1), cellm.vIDs(I+1)];
             end
                 
         end
         
         % --------- Visualize ---------
         
-        function image = draw(cellm)
+        function image = draw(cellm,tis)
             % Draws a binary outline of the cell
-            vx = [cellm.vertices.x]; vy = [cellm.vertices.y];
+            v = tis.getVertices( cellm.vIDs );
+%             v = sort(v, cellm.centroid); % sort counter-clockwis
+            vx = [v.x]; vy = [v.y];
             [xe,ye] = poly2edge(vx,vy);
-            Xs = cellm.parentTissue.Xs;
-            Ys = cellm.parentTissue.Ys;
+            Xs = tis.Xs; Ys = tis.Ys;
             image = accumarray(round([xe,ye]), 1, [Xs Ys], @max);
         end
         
-        function image = drawMask(cellm)
+        function image = drawMask(cellm,tis)
             % Use POLY2MASK to draw a mask of the current cell
-            v = cellm.vertices;
-            Xs = cellm.parentTissue.Xs;
-            Ys = cellm.parentTissue.Ys;
+            v = tis.getVertices( cellm.vIDs );
+%             v = sort(v, cellm.centroid); % sort counter-clockwis
+            Xs = tis.Xs; Ys = tis.Ys;
             image = poly2mask([v.y],[v.x],Xs,Ys);
         end
-        function image = draw_smallMask(cellm)
+        function image = draw_smallMask(cellm,tis)
             % Use POLY2MASK to draw a mask of the current cell--only around
             % bounding box of cell
-            v = cellm.vertices;
+            v = tis.getVertices( cellm.vIDs );
+%             v = sort(v, cellm.centroid); % sort counter-clockwis
             vx = [v.x]; vy = [v.y];
             vx = vx - min(vx) + 1; vy = vy - min(vy) + 1;
             Xs = round(max(vx)) + 1; Ys = round(max(vy)) + 1;
