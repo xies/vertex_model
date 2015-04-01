@@ -361,7 +361,7 @@ classdef Tissue
         
         % ------ Simulation methods ---------
         
-        function tis = evolve( tis_old, new_vcoords, varargin)
+        function tis = evolve(tis_old, new_vcoords, varargin)
             % EVOLVE
             % Updates and returns a new copy of the old tissue
             % configuration by moving all the vertex positions
@@ -425,6 +425,7 @@ classdef Tissue
             conn = tis.adjMatrix(parameters.conn_opt);
             tis.connectivity = conn;
             tis.interVertDist = squareform( pdist(tis.vert_coords) );
+            
             
         end % setParameters
         
@@ -560,9 +561,9 @@ classdef Tissue
             
             vt = tis.getVertices;
             num_vertices = numel(vt);
-            if nargin < 3
-                cells = tis.getCells;
-            end
+%             if nargin < 3
+%                 cells = tis.getCells;
+%             end
             
             switch opt
                 case 'purse string'
@@ -571,8 +572,10 @@ classdef Tissue
                     conn = zeros(num_vertices);
                     
                     for i = 1:num_vertices
-                        for this_cell = cells
-                            connectedVertIDs = this_cell.getConnectedVertices( vt(i) );
+                        candidateCells = tis.getCells(vt(i).cellIDs);
+                        for this_cell = candidateCells
+                            connectedVertIDs = ...
+                                this_cell.getConnectedVertices( vt(i) );
                             I = ismember([vt.ID], connectedVertIDs);
                             conn(i,I) = 1;
                         end
@@ -711,7 +714,7 @@ classdef Tissue
                 cells = tis.cells.values;
                 cells = [cells{:}];
             else
-                cellID = varargin;
+                cellID = varargin{1};
                 num_cells = numel(cellID);
                 cells(1:num_cells) = CellModel();
                 for i = 1:num_cells

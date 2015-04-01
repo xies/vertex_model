@@ -130,21 +130,17 @@ classdef CellModel
             flag = flag && abs(ct(1) - cellm.centroid(1)) <= 2;
             flag = flag && abs(ct(2) - cellm.centroid(2)) <= 2;
             if ~flag, keyboard; end
-        end
+        end % isValid
         
         function flags = eq( this_cell, cellArray)
             % Evaluates whether a cell is equal to any element of an array
             % of cells
             
-%             num_comp = numel(cellArray);
             ct = cat(1,cellArray.centroid);
             flags = any( this_cell.centroid(1) == ct(:,1) ); % cx
             flags = flags & any( this_cell.centroid(2) == ct(:,2) ); % cy
             
-%             vt = {cellArray.vertices};
-%             cellfun(@(x)
-            
-        end
+        end % eq
         
         % --------- Measurements ---------
         
@@ -214,7 +210,7 @@ classdef CellModel
             cellm.perimeter = cellm.get_perimeter( tis );
             cellm.anisotropy = cellm.get_anisotropy( tis );
             
-        end
+        end % updatedCell
         
         function c_array = sort(c_array,point)
             % Sort an array based on clock-wise angle wrt a POINT
@@ -225,7 +221,8 @@ classdef CellModel
             angles = atan2( ct(:,1)-point(2), ct(:,2)-point(1));
             [~,I] = sort(angles);
             c_array = c_array(I);
-        end
+            
+        end % sort
         
         % ---------  Connectivity --------
           
@@ -251,7 +248,8 @@ classdef CellModel
                     flag = 1; return;
                 end
             end
-        end
+            
+        end % connected
         
         function neighborVerts = getConnectedVertices( cellm, v)
             % Returns all the edge-connected vertex of v, as seen by cellm
@@ -268,37 +266,38 @@ classdef CellModel
                 neighborVerts = [cellm.vIDs(I-1), cellm.vIDs(I+1)];
             end
                 
-        end
+        end % getConnectedVertices
         
         % --------- Visualize ---------
         
         function image = draw(cellm,tis)
             % Draws a binary outline of the cell
             v = tis.getVertices( cellm.vIDs );
-%             v = sort(v, cellm.centroid); % sort counter-clockwis
             vx = [v.x]; vy = [v.y];
             [xe,ye] = poly2edge(vx,vy);
             Xs = tis.Xs; Ys = tis.Ys;
             image = accumarray(round([xe,ye]), 1, [Xs Ys], @max);
-        end
+            
+        end % draw
         
         function image = drawMask(cellm,tis)
             % Use POLY2MASK to draw a mask of the current cell
             v = tis.getVertices( cellm.vIDs );
-%             v = sort(v, cellm.centroid); % sort counter-clockwis
             Xs = tis.Xs; Ys = tis.Ys;
             image = poly2mask([v.y],[v.x],Xs,Ys);
-        end
+            
+        end % drawMask
+        
         function image = draw_smallMask(cellm,tis)
             % Use POLY2MASK to draw a mask of the current cell--only around
             % bounding box of cell
             v = tis.getVertices( cellm.vIDs );
-%             v = sort(v, cellm.centroid); % sort counter-clockwis
             vx = [v.x]; vy = [v.y];
             vx = vx - min(vx) + 1; vy = vy - min(vy) + 1;
             Xs = round(max(vx)) + 1; Ys = round(max(vy)) + 1;
             image = poly2mask(vy,vx,Xs,Ys);
-        end
+            
+        end % draw_smallMask
         
     end % End methods
     

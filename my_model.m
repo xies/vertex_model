@@ -7,13 +7,13 @@ HEX_ANGLE = 'horizontal';
 %HEX_ANGLE = 'vertical';
 % HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 36;
-HEX_NUM_Y = 12;
+HEX_NUM_X = 48;
+HEX_NUM_Y = 16;
 
 %Approx run times for different dimentions for 4 steps
-% 48 by 16 - 26 min
-% 36 by 12 - 400s initialize; 6 sec / step
-% 24 by 8 - 50s initalize; 5 sec / step
+% 48 by 16 - 70s initialize; 20s / step
+% 36 by 12 - 12s initialize; 6 sec / step
+% 24 by 8 - 10s initalize; 5 sec / step
 % 12 by 4 - 5s initialize; 0.5 sec / step
 l = 512 / max(HEX_NUM_X,HEX_NUM_Y) / 2;
 

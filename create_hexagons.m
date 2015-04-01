@@ -6,8 +6,13 @@ function cells = create_hexagons(HEX_ANGLE, HEX_NUM_X, HEX_NUM_Y)
 
 
 % arbitrary but ok
-BIG_DIMENSION = 512; %px
-BOUNDARY = 20; %px
+if max(HEX_NUM_X,HEX_NUM_Y) > 36
+    BIG_DIMENSION = 1024;
+    BOUNDARY = 50;
+else
+    BIG_DIMENSION = 512; %px
+    BOUNDARY = 20; %px
+end
 
 if HEX_NUM_X > HEX_NUM_Y
     extx = BIG_DIMENSION;

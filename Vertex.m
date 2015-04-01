@@ -41,26 +41,13 @@ classdef Vertex
             [~,I] = sort(angles);
             v_array = v_array(I);
             
-        end
+        end % sort
         
         % ------- Change vertex --------
         function vx = move(vx,new_pos)
             %Specify new position
             vx.x = new_pos(1); vx.y = new_pos(2);
         end
-        
-%         function v = displace_by(v,vector)
-%             % Move vertex by a displacement vector [dx, dy]
-%             v.x = v.x + vector(1);
-%             v.y = v.y + vector(2);
-%         end
-        
-%         function vx = merge(v_array)
-%             % Merge an array of vertices by finding mean value
-%             vx = Vertex( ...
-%                 round( mean([v_array.x]) ), ...
-%                 round( mean([v_array.y]) ) );
-%         end
         
         % ------- Comparators --------
         function boolArr = eq(vertex_a,vertices)
