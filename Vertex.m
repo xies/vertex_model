@@ -48,6 +48,20 @@ classdef Vertex
             %Specify new position
             vx.x = new_pos(1); vx.y = new_pos(2);
         end
+        function vt = rotate(vt,origin,theta)
+            
+            origin = ensure_column(origin);
+            
+            % Rotate a vertex with respect to an origin and by theta
+            x = vt.x; y = vt.y;
+            R = [cos(theta),-sin(theta);sin(theta),cos(theta)]; %2D rotation matrix
+            x = x - origin(1);
+            y = y - origin(2);
+            
+            new_vt = origin + R*[x; y];
+            vt.x = new_vt(1); vt.y = new_vt(2);
+            
+        end
         
         % ------- Comparators --------
         function boolArr = eq(vertex_a,vertices)

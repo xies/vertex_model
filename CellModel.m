@@ -26,6 +26,7 @@ classdef CellModel
     %       get_perimeter - get perimeter from vertex positions
     %       get_centroid - get centroid from vertex positions
     %       get_anisotropy - get area from vertex-derived mask  (@todo work with non-binary)
+    %       get_distance_to
     %
     %   --- Cell set methods ---
     %       activateCell - set cell to active
@@ -163,7 +164,7 @@ classdef CellModel
             % See also: POLYAREA
             
             vt = tis.getVertices( cellm.vIDs );
-%             vt = sort(vt, cellm.centroid); % sort counter-clockwise
+            vt = sort(vt, cellm.centroid); % sort counter-clockwise
             x = [vt.x]; y = [vt.y];
             a = polyarea( x, y);
         end % get_area
@@ -172,8 +173,8 @@ classdef CellModel
             % Calculates perimeter from the vertex positions directly
             %
             % USAGE: p = get_perimeter(cellm,tis)
-            
             vt = tis.getVertices( cellm.vIDs );
+            vt = vt.sort(cellm.centroid);
             x = [vt.x]; y = [vt.y];
             xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
             p = sum( sqrt((x-xplus1).^2 + (y-yplus1).^2) );
@@ -184,16 +185,27 @@ classdef CellModel
             % USAGE: ct = get_centroid(cellm,tis)
             
             vt = tis.getVertices( cellm.vIDs );
-%             vt = sort(vt, cellm.centroid); % sort counter-clockwis
+            vt = sort(vt, cellm.centroid); % sort counter-clockwise
             x = [vt.x]; y = [vt.y];
             G = polygeom(x,y);
             centroid = [G(2), G(3)];
         end % get_centroid
         
+        function D = get_distance_to(cellm,pt)
+            % Get distance of cell centroid to external points
+            % USAGE: D = cellm.get_distance_to(points)
+            ct = cellm.centroid;
+            D = sqrt( (ct(1) - pt(:,1)).^2 + (ct(2) - pt (:,2)).^2 );
+        end % get_distance_to
+        
         % ------- Cell set methods -------
         
         function cell = activateCell(cell), cell.isActive = 1; end
-        function cell = deactivateCell(cell), cell.isActive = 0; end
+        function cell = deactivateCell(cell)
+            % Deactivate the active flag and sets contractility to 0
+            cell.isActive = 0;
+            cell.contractility = 0;
+        end
         
         function cellm = setContractility( cellm, C)
             % Sets the active contractility coefficient of a cell
@@ -223,6 +235,13 @@ classdef CellModel
             c_array = c_array(I);
             
         end % sort
+        
+        function c_array = sortbyID( c_array )
+            % Sort a CellModel array by ID.
+            IDs = [c_array.cellID];
+            [~,I] = sort(IDs);
+            c_array = c_array(I);
+        end
         
         % ---------  Connectivity --------
           
@@ -273,6 +292,7 @@ classdef CellModel
         function image = draw(cellm,tis)
             % Draws a binary outline of the cell
             v = tis.getVertices( cellm.vIDs );
+            v = v.sort(cellm.centroid);
             vx = [v.x]; vy = [v.y];
             [xe,ye] = poly2edge(vx,vy);
             Xs = tis.Xs; Ys = tis.Ys;
@@ -283,6 +303,7 @@ classdef CellModel
         function image = drawMask(cellm,tis)
             % Use POLY2MASK to draw a mask of the current cell
             v = tis.getVertices( cellm.vIDs );
+            v = v.sort(cellm.centroid);
             Xs = tis.Xs; Ys = tis.Ys;
             image = poly2mask([v.y],[v.x],Xs,Ys);
             
