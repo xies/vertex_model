@@ -10,6 +10,7 @@ classdef CellModel
     %   (public)
     %      centroid - centroid coord
     %      vIDs - array of indices to Vertex objects
+    %      bondIDs - array of indices to Interface objects
     %      area     - cell area
     %      perimeter  - perimeter
     %      anisotropy - ellipsoid anisotropy
@@ -67,6 +68,7 @@ classdef CellModel
         % measurements
         centroid	% centroid of cell
         vIDs	% IDs to Vertex objects
+        bondIDs    % IDs to interface objects
         
         contractility % current contractility
         anisotropy  % anisotropy (shape)

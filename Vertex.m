@@ -1,8 +1,21 @@
 classdef Vertex
-    % ---- Vertex ----
+    % ---- Properties ----
+    %   ID
+    %   x
+    %   y
+    %   cellIDs
+    %   bondIDs
+    % --- Methods ----
+    %   distance - distance b/w two vertices
+    %   sort - sort counter-clockwise around a given point
+    %   move - move to new position
+    %   rotate - rotate counter-clockwise by a given angle
+    %   eq/ne - comparison done by x+y
+    %   ismember - comparison by ID
+    % ---Visualize ---
+    %   draw
+    %   line
     % 
-    % --- Properties ----
-    %
     % xies@mit.edu March 2015
     
     properties (SetAccess = private)
@@ -13,6 +26,7 @@ classdef Vertex
         x
         y
         cellIDs
+        bondIDs
     end
     
     methods
@@ -88,12 +102,17 @@ classdef Vertex
         % ---- Visualize ----
         function draw( vArray )
             % Draw locations of vertices using SCATTER.
-            
             x = [vArray.x]; y = [vArray.y];
             C = spring( numel(x) );
             scatter( y, x, 100, C,'filled');
-%             legend(
-            
+        end
+        function line( vArray, color)
+            % Draw lines between vertices using LINE.
+            if nargin < 2
+                color = [0 0 1];
+            end
+            x = [vArray.x]; y = [vArray.y];
+            line( y, x, 'Color', color);
         end
         
     end
