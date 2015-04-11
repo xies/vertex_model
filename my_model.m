@@ -6,7 +6,7 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 10;
+HEX_NUM_X = 15;
 HEX_NUM_Y = 10;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
@@ -38,7 +38,7 @@ ELASTICITY = 'elastic';
 
 STEPS = 1000; % number of constriction steps
 TIME_STEP = 0.01;
-VISCOSITY_COEFF = 1;
+VISCOSITY_COEFF = 1e3;
 
 JITTERING_STD = l/10;
 
@@ -65,7 +65,7 @@ if DIMENSIONLESS
         'lengthScale', l, ...
         'forceScale', FORCE_SCALE, ...
         'lineTension', FORCE_SCALE, ...
-        'lineAnisotropy', 2, ...
+        'lineAnisotropy', 1, ...
         'areaElasticity', AREA_ELASTICITY*l^3/FORCE_SCALE, ...
         'perimElasticity', PERIM_ELASTICITY*l/FORCE_SCALE, ...
         'targetArea',sqrt(3)*3/2, ...
@@ -83,7 +83,7 @@ else
         'lengthScale', 1, ...
         'forceScale', FORCE_SCALE, ...
         'lineTension', FORCE_SCALE, ...
-        'lineAnisotropy', 2, ...
+        'lineAnisotropy', 1, ...
         'areaElasticity', AREA_ELASTICITY, ...
         'perimElasticity', PERIM_ELASTICITY, ...
         'viscosity', VISCOSITY_COEFF, ...
@@ -103,17 +103,25 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 %% Set contractility gradient
 tic
 
+MODEL_FUN = @gaussian_gradient;
+CONTRACTILITY_MAGNITUDE = AREA_ELASTICITY*10;
+CONTRACTILE_WIDTH = 30; % pxs
+ALT_TENSION = FORCE_SCALE*1;
+
 % Activate "ventral fate"
 box = [ tis_init.Xs* 1/4, tis_init.Ys * 1/10 ...
     tis_init.Xs * 3/4, tis_init.Ys * 9/10];
 cIDs = tis_init.getCellsWithinRegion(box);
-tis_init = tis_init.activateCell(cIDs);
+tis_init = tis_init.activateCell(cIDs,ALT_TENSION);
 figure(1),tis_init.draw('showActive'); title('Ventral fated cells')
 
-tis_init = tis_init.setContractilityModel()
+% Set the value of contractility in each cell
+midline = tis_init.Xs/2;
+contract_params = [CONTRACTILITY_MAGNITUDE, midline, CONTRACTILE_WIDTH];
+tis_init = tis_init.setContractilityModel(MODEL_FUN,contract_params);
 T = toc;
 display(['Contractility set in ' num2str(T) ' sec'])
-figure(1),tis_init.draw('showActive'); title('Contractility')
+figure(2),tis_init.draw('showContractile'); title('Contractility')
 
 %% JITTER + Show initial conditions
 
@@ -136,16 +144,10 @@ for i = 1:STEPS
     
     tic
     
-    cy = tis_init.getCentroidY;
-%     C( ind ) = max( C(ind) + AREA_ELASTICITY* (5*randn(1,numel(ind))+5), 0);
-    tis = tis.activateCell( find(C > 0) );
-    tis = tis.setContractility( C );
-%     if mod(i,10) == 0,
-%         bias = AREA_ELASTICITY*( 0.05*randn(1,numel(ind)) );
-%     end
-    
     verts = tis.vert_coords;
-    displacements = tis.get_force/p.viscosity * p.length_scale * p.step_size;
+    displacements = tis.get_force ...
+        /tis.parameters.viscosity * tis.parameters.lengthScale ...
+        * tis.parameters.stepSize;
     verts = verts + displacements;
     
     if max(displacements) < .05,
@@ -156,7 +158,8 @@ for i = 1:STEPS
     tissueArray( i + 1 ) = tis;
     E(i) = tis.get_energy;
     
-    tis.draw('showVectors', p.dt* displacements,'showContractile');
+    tis.draw('showVectors',tis.parameters.dt_per_frame * displacements, ...
+        'showContractile');
     title(['Time step = ' num2str(i)]);
     figure(2)
     hist(displacements(:),30);
@@ -167,14 +170,3 @@ for i = 1:STEPS
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
     
 end
-
-%% Use MATLAB's RK45 ODE solver (ODE45)
-
-% ode_solver = @ode45;
-initial_conditions = tis_init.vert_coords;
-tis = tis_init;
-% 
-opt = odeset('InitialStep',0.01);
-[T,Y] = ode_solver( @(t,y) evolve_tissue(t,y,tis), ...
-    [0 60],initial_conditions,opt );
-

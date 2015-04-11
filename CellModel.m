@@ -14,6 +14,11 @@ classdef CellModel
     %      area     - cell area
     %      perimeter  - perimeter
     %      anisotropy - ellipsoid anisotropy
+    %      energy - sum of contractile, area and perim elasticity
+    %      --- Parameters ---
+    %      targetArea - A0
+    %      areaElasticity
+    %      perimElasticity
     %      
     %      contractility - current active force amt
     %      isActive - active/contracting flag
@@ -74,8 +79,13 @@ classdef CellModel
         anisotropy  % anisotropy (shape)
         area		% area
         perimeter	% perimeter
+        energy
+        
         % simulation properties
         isActive    % active for contractility
+        areaElasticity
+        perimElasticity
+        targetArea
         
     end % Public properties
     
@@ -146,6 +156,26 @@ classdef CellModel
         end % eq
         
         % --------- Measurements ---------
+        
+        function E = get_energy(cellm,tis)
+            % Caculates the current reduced energy associated with this cell
+            % E = area_elastic + perim_minization + contractility
+            %
+            
+            if tis.parameters.dimensionless
+                sigma = tis.parameters.forceScale;
+                lambda = tis.parameters.lengthScale;
+            else
+                sigma = 1;
+                lambda = 1;
+            end
+                E = cellm.areaElasticity*(cellm.area - cellm.targetArea)^2 / 2;
+                E = E + cellm.perimElasticity*(cellm.perimeter)^2 / 2;
+                E = E + cellm.contractility * cellm.area ^ 2;
+                
+                E = E/sigma/lambda;
+            
+        end
         
         function a = get_anisotropy(cellm,tis)
             % Measures anisotropy of current cell by drawing a mask of it
@@ -223,6 +253,7 @@ classdef CellModel
             cellm.area = cellm.get_area( tis );
             cellm.perimeter = cellm.get_perimeter( tis );
             cellm.anisotropy = cellm.get_anisotropy( tis );
+            cellm.energy = cellm.get_energy(tis);
             
         end % updatedCell
         

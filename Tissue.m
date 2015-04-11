@@ -2,7 +2,6 @@ classdef Tissue
     % TISSUE
     %
     % ---- Properties ----
-    %   centroids - Nc x 2 array of centroid locations
     %   vert_coords - Nv x 2 array of vertex locations
     %   vertices % hashmap of Vertex objects keyed by ID
     %   interfaces % hashmap of Interface.m objects
@@ -221,25 +220,34 @@ classdef Tissue
             % Right now implements area elasticity, parameter elasticity,
             % and active contractility.
             
-            p = tis.parameters; % get parameters
             
-            dist = tis.interVertDist .* tis.connectivity;
-            lineTensionTerm = nansum(nansum( triu(dist / p.length_scale) ) * p.lineTension);
+%             p = tis.parameters; % get parameters
+% %             lambda = p.lengthScale;
+            e = tis.interfaces.values; e = [e{:}];
+            bondTerm = sum([e.energy]);
+%             
+            c = tis.cells.values(); c = [c{:}];
+            cellTerm = sum([c.energy]);
             
-            current_areas = [tis.getCells.area];
-            areaElasticTerm = nansum( p.areaElasticity.* ...
-                ([tis.getCells.area] - p.targetAreas).^2 / 2 /p.length_scale^2 );
-            perimElasticTerm = nansum( p.perimElasticity.* ...
-                ([tis.getCells.perimeter] - p.targetPerimeters) ./ p.length_scale );
-            
-            C = [tis.getCells.contractility];
-            activeContractionTerm = nansum( C .* current_areas ./ p.length_scale^2 );
-            
-            E_lat = areaElasticTerm + perimElasticTerm + ...
-                lineTensionTerm;
-            E_cont = activeContractionTerm;
-            
-            E = E_lat + E_cont;
+            E = bondTerm + cellTerm;
+%             
+%             dist = tis.interVertDist .* tis.connectivity;
+%             lineTensionTerm = nansum(nansum( triu(dist / lambda) ) * p.lineTension);
+%             
+%             current_areas = [tis.getCells.area];
+%             areaElasticTerm = nansum( p.areaElasticity.* ...
+%                 ([tis.getCells.area] - p.targetAreas).^2 / 2 /p.lambda^2 );
+%             perimElasticTerm = nansum( p.perimElasticity.* ...
+%                 ([tis.getCells.perimeter] - p.targetPerimeters) ./ p.lambda );
+%             
+%             C = [tis.getCells.contractility];
+%             activeContractionTerm = nansum( C .* current_areas ./ p.lambda^2 );
+%             
+%             E_lat = areaElasticTerm + perimElasticTerm + ...
+%                 lineTensionTerm;
+%             E_cont = activeContractionTerm;
+%             
+%             E = E_lat + E_cont;
 
         end % get_energy
         
@@ -266,9 +274,7 @@ classdef Tissue
             vcoords = tis.vert_coords;
             D = tis.interVertDist;
             
-            % Grap parameters
-            kappa_a = tis.parameters.areaElasticity;
-            kappa_p = tis.parameters.perimElasticity;
+            % Grap tissue-constant parameters
             length_scale = tis.parameters.lengthScale;
             
             % Initialize
@@ -282,7 +288,6 @@ classdef Tissue
                 
                 % Find connected vertices
                 vi = tis.vertices(vIDList(i));
-                num_edges = numel( vi.bondIDs );
 %                 J = find(conn(i,:) == 1); % Idx of connected vertices
                 num_neighbors = numel( vi.cellIDs );
                 
@@ -345,13 +350,13 @@ classdef Tissue
                         
                         % Area elasticity
                         area_elastic_term = area_elastic_term ...
-                            - 2 * (this_cell.area - tis.parameters.targetAreas) ...
-                            * v * kappa_a / length_scale ^2;
+                            - 2 * (this_cell.area - this_cell.targetArea) ...
+                            * v * this_cell.areaElasticity / length_scale ^2;
                         
                         % Perimeter elasticity
                         perim_elastic_term = perim_elastic_term ...
                             + 2 * (this_cell.perimeter) * u' ...
-                            * kappa_p / length_scale;
+                            * this_cell.perimElasticity / length_scale;
                         
                         % Active contraction -- same form as area
                         % elasticity but sets A0 = 0 and uses different
@@ -496,6 +501,13 @@ classdef Tissue
                         tis.cells(c).updateCell( tis );
                 end
                 
+                % Update edges associated with this vertex
+                eContainsV = v.bondIDs;
+                for e = ensure_row(eContainsV)
+                    tis.interfaces( e) = ...
+                        tis.interfaces(e).updateInterface(tis);
+                end
+                
                 % Move Vertex
                 tis.vertices(vIDList(i)) = ...
                     tis.vertices(vIDList(i)).move(new_vcoords(i,:));
@@ -520,7 +532,7 @@ classdef Tissue
             
             % Advance time stamp by one
             if nargin < 3,
-                tis.t = tis.t + tis.parameters.dt;
+                tis.t = tis.t + tis.parameters.dt_per_frame;
             end
             
         end % evolve
@@ -642,10 +654,16 @@ classdef Tissue
                 A0 = tis.parameters.targetAreas;
             end
             
+            % Set Intarface-related parameters
             tis = tis.setLineTension;
             if tis.parameters.lineAnisotropy ~= 1
                 tis = tis.setLineAnisotropy;
             end
+            
+            % Set CellModel parameters
+            tis = tis.setAreaElasticity;
+            tis = tis.setPerimElasticity;
+            tis = tis.setTargetArea;
             
             display('---Parameter check---')
             display(['Normalized line tension = '...
@@ -689,7 +707,6 @@ classdef Tissue
                     tis = tis.setLineTension( [edges.ID], nonActiveTension );
                     
                 end
-                keyboard
             end
             
         end % activateCell
@@ -729,24 +746,29 @@ classdef Tissue
             
         end % deactivateBorder
         
-        function tis = setContractility(tis,C)
+        function tis = setContractility(tis,C,cIDs)
             % Directly sets the active contractility coefficient
             % Requires all cells to have its own specified contractility
             % 
-            % USAGE: tis = tis.setContractility( C , varargin );
+            % USAGE: tis = tis.setContractility( C , cIDs );
+            %        tis = tis.setContractility( C , cIDs );
             % INPUT: tis - tissue
-            %        C - (Nc x 1) vector of contractility values
+            %        C - vector of contractility values
+            %        cIDs - by default sets all cells
             
-            if tis.cells.length ~= numel( C )
+            if nargin < 3
+                cIDs = tis.cells.keys; cIDs = [cIDs{:}];
+            end
+            
+            if numel(cIDs) ~= numel( C )
                 error('Number of contractility coeff and number of cells don''t match');
             end
             
-            cellIDList = tis.cells.keys;
-            for i = 1:tis.cells.length
-                if tis.cells(cellIDList{i}).isActive
+            for i = 1:numel(cIDs)
+                if tis.cells(cIDs(i)).isActive
                     % set cell contractility iff it's an active cell
-                    tis.cells( cellIDList{i} ) = ...
-                        tis.cells( cellIDList{i} ).setContractility(C(i));
+                    tis.cells( cIDs(i) ) = ...
+                        tis.cells( cIDs(i) ).setContractility(C(i));
                 end
             end
         end % setContractility
@@ -769,15 +791,15 @@ classdef Tissue
             % Records the modelfun + params in tis.contraction_param
             
             if nargin < 4
-                cellsOI = [tis.getActiveCells.cellIDs];
+                cellsOI = tis.getActiveCells;
             else
                 cellsOI = tis.getCells( cIDs );
             end
             
             % Evaluate modelfun and set the values
-            ct = [cellsOI.centroid];
+            ct = cat(1,cellsOI.centroid);
             C = modelfun(ct,params);
-            tis = tis.setContractility( C );
+            tis = tis.setContractility( C,[cellsOI.cellID] );
             tis = tis.deactivateBorder;
             
             % Record modelfun + param
@@ -785,81 +807,6 @@ classdef Tissue
             tis.contractile_params.params = params;
             
         end
-        
-        function tis = setLineTension(tis,bIDList,L)
-            % Set the line tension of each bond in the tissue.
-            % Can specify each bond or have them be all the same
-            %
-            % USAGE: tis = tis.setLineTension(bIDs,L)
-            %        tis = tis.setLineTension - uses tis.parameters
-            %
-            % INPUT:
-            %   tis.parameters.lineTension:
-            %       scalar or Nv by Nv matrix with the same sparsity as
-            %       tis.connectivity
-            
-            if nargin < 3
-                bIDList = tis.interfaces.keys; bIDList = [bIDList{:}];
-                L = tis.parameters.lineTension;
-            end
-            
-            for i = 1:numel(bIDList)
-                e = tis.interfaces( bIDList(i) );
-                if isscalar(L)
-                    e.tension = L;
-                else
-                    e.tension = L(i);
-                end
-                tis.interfaces( bIDList(i) ) = e;
-            end
-            if nargin > 1
-                allIDs = tis.interfaces.keys; allIDs = [allIDs{:}];
-                tis.parameters( ismember(bIDList,allIDs) ) = L;
-            end
-            
-        end % setLineTension
-        
-        function tis = setLineAnisotropy(tis,bIDList,a)
-            % Set the line tension anisotropically according to
-            % orientation.
-            %
-            % Anisotropy value is the same across specified cells
-            %
-            % USAGE: tis = tis.setLineAnisotropy(bIDs,a)
-            %        tis = tis.setLineAnisotropy - use tis.parameters as
-            %           default value
-            
-            sigma = tis.parameters.forceScale;
-            if nargin < 3
-                a = tis.parameters.lineAnisotropy;
-                bIDList = tis.interfaces.keys; bIDList = [bIDList{:}];
-            end
-            
-            if a == 1, return; end % Do nothing if a is unit
-            
-            new_tensions = zeros(1,numel(bIDList));
-            for i = 1:numel(bIDList)
-                e = tis.interfaces( bIDList(i) );
-                theta = e.angle;
-                % Scale horizontal junctions by factor
-                if (theta > 0 && theta < pi/4) ...
-                        || (theta > 3*pi/4 && theta < pi)
-                    e.tension = sigma*a;
-                end
-                % set new junctions
-                tis.interfaces( bIDList(i) ) = e;
-                new_tensions(i) = e.tension;
-            end
-            
-            % Update parameter list
-            allIDs = tis.interfaces.keys; allIDs = [allIDs{:}];
-            if isscalar( tis.parameters.lineTension )
-                tis.parameters.lineTension = ...
-                    tis.parameters.lineTension*ones(1,numel(allIDs));
-            end
-            tis.parameters.lineTension( ismember(bIDList,allIDs) ) = new_tensions;
-            
-        end % setLineAnisotropy
         
         function tis = jitterVertices(tis, STD)
             % Add a set amount of Gaussian jitter to vertex position.
@@ -905,7 +852,7 @@ classdef Tissue
                         
                         this_vertex = tis.getVertices( vIDsList(i) );
                         
-                        % Get pull cells according to this Vertex's list
+                        % Get cells according to this Vertex's list
                         candidateCells = tis.getCells(this_vertex.cellIDs);
                         for this_cell = candidateCells
                             % Find which vertices are connected through
@@ -928,7 +875,7 @@ classdef Tissue
                                 % Instantiate an Interface
                                 tis.interfaces(ID) = ...
                                     Interface( ID,[this_vertex that_vertex], ...
-                                    this_cell.cellID );
+                                    this_cell.cellID, tis );
                                 % Tell vertices about interface
                                 this_vertex.bondIDs = unique([this_vertex.bondIDs ID]);
                                 tis.vertices( this_vertex.ID ) = this_vertex;
@@ -1125,6 +1072,90 @@ classdef Tissue
             
             cIDs = [cellIDList{I}];
             
+        end % getCellsWithinRegion
+        
+        function tis = setTargetArea(tis,cIDs,alt_area)
+            % Passes parameters from Tissue into CellModels
+            % 
+            % Usage: tis = setTargetArea(tis,cIDs,alt_area)
+            %
+            % INPUT:
+            %   cIDs - by default does every cell
+            %   alt_area - should match size of cIDs
+            
+            if nargin < 2
+                cIDs = tis.cells.keys;
+                cIDs = [cIDs{:}];
+                alt_area = tis.parameters.targetArea;
+            end
+            
+            num_cells = numel(cIDs);
+            % Update targetAreas
+            for i = 1:num_cells
+                c = tis.cells( cIDs(i) );
+                if isscalar(alt_area)
+                    c.targetArea = alt_area;
+                else
+                    c.targetArea = alt_area(i);
+                end
+                tis.cells( cIDs(i) ) = c;
+            end
+        end
+        
+        function tis = setAreaElasticity(tis,cIDs,alt_ka)
+            % Passes parameters from Tissue into CellModels
+            % 
+            % Usage: tis = setAreaElasticity(tis,cIDs,alt_ka)
+            %
+            % INPUT:
+            %   cIDs - by default does every cell
+            %   alt_area - should match size of cIDs
+            
+            if nargin < 2
+                cIDs = tis.cells.keys;
+                cIDs = [cIDs{:}];
+                alt_ka = tis.parameters.areaElasticity;
+            end
+            
+            num_cells = numel(cIDs);
+            % Update targetAreas
+            for i = 1:num_cells
+                c = tis.cells( cIDs(i) );
+                if isscalar(alt_ka)
+                    c.areaElasticity = alt_ka;
+                else
+                    c.areaElasticity = alt_ka(i);
+                end
+                tis.cells( cIDs(i) ) = c;
+            end
+        end
+        
+        function tis = setPerimElasticity(tis,cIDs,alt_kp)
+            % Passes parameters from Tissue into CellModels
+            % 
+            % Usage: tis = setPerimElasticity(tis,cIDs,alt_kp)
+            %
+            % INPUT:
+            %   cIDs - by default does every cell
+            %   alt_kp - should match size of cIDs
+            
+            if nargin < 2
+                cIDs = tis.cells.keys;
+                cIDs = [cIDs{:}];
+                alt_kp = tis.parameters.perimElasticity;
+            end
+            
+            num_cells = numel(cIDs);
+            % Update targetAreas
+            for i = 1:num_cells
+                c = tis.cells( cIDs(i) );
+                if isscalar(alt_kp)
+                    c.perimElasticity = alt_kp;
+                else
+                    c.perimElasticity = alt_kp(i);
+                end
+                tis.cells( cIDs(i) ) = c;
+            end
         end
         
         % ----- Interface handling ----
@@ -1147,6 +1178,81 @@ classdef Tissue
                 e(i) = tis.interfaces( bIDs(i) );
             end
         end
+        
+        function tis = setLineTension(tis,bIDList,L)
+            % Set the line tension of each bond in the tissue.
+            % Can specify each bond or have them be all the same
+            %
+            % USAGE: tis = tis.setLineTension(bIDs,L)
+            %        tis = tis.setLineTension - uses tis.parameters
+            %
+            % INPUT:
+            %   tis.parameters.lineTension:
+            %       scalar or Nv by Nv matrix with the same sparsity as
+            %       tis.connectivity
+            
+            if nargin < 3
+                bIDList = tis.interfaces.keys; bIDList = [bIDList{:}];
+                L = tis.parameters.lineTension;
+            end
+            
+            for i = 1:numel(bIDList)
+                e = tis.interfaces( bIDList(i) );
+                if isscalar(L)
+                    e.tension = L;
+                else
+                    e.tension = L(i);
+                end
+                tis.interfaces( bIDList(i) ) = e;
+            end
+            if nargin > 1
+                allIDs = tis.interfaces.keys; allIDs = [allIDs{:}];
+                tis.parameters.lineTension( ismember(bIDList,allIDs) ) = L;
+            end
+            
+        end % setLineTension
+        
+        function tis = setLineAnisotropy(tis,bIDList,a)
+            % Set the line tension anisotropically according to
+            % orientation.
+            %
+            % Anisotropy value is the same across specified cells
+            %
+            % USAGE: tis = tis.setLineAnisotropy(bIDs,a)
+            %        tis = tis.setLineAnisotropy - use tis.parameters as
+            %           default value
+            
+            sigma = tis.parameters.forceScale;
+            if nargin < 3
+                a = tis.parameters.lineAnisotropy;
+                bIDList = tis.interfaces.keys; bIDList = [bIDList{:}];
+            end
+            
+            if a == 1, return; end % Do nothing if a is unit
+            
+            new_tensions = zeros(1,numel(bIDList));
+            for i = 1:numel(bIDList)
+                e = tis.interfaces( bIDList(i) );
+                theta = e.angle;
+                % Scale horizontal junctions by factor
+                if (theta > 0 && theta < pi/4) ...
+                        || (theta > 3*pi/4 && theta < pi)
+                    e.tension = sigma*a;
+                end
+                % set new junctions
+                tis.interfaces( bIDList(i) ) = e;
+                new_tensions(i) = e.tension;
+            end
+            
+            % Update parameter list
+            allIDs = tis.interfaces.keys; allIDs = [allIDs{:}];
+            if isscalar( tis.parameters.lineTension )
+                tis.parameters.lineTension = ...
+                    tis.parameters.lineTension*ones(1,numel(allIDs));
+            end
+            tis.parameters.lineTension( ismember(bIDList,allIDs) ) = new_tensions;
+            
+        end % setLineAnisotropy
         
         % ----- Vertex handling ------
         
@@ -1185,7 +1291,7 @@ classdef Tissue
             
             % Swap interface cell ownership and update tissue
             edge.cIDs = [cells_single.cellID];
-            tis.interface( edge.ID) = edge;
+            tis.interfaces( edge.ID) = edge.updateInterface(tis);
             
             % Cells with only 1 before now has 2 and the bond
             for i = 1:numel(cells_single)
@@ -1218,7 +1324,7 @@ classdef Tissue
             % Update matrices
             tis.interVertDist = squareform(pdist( tis.vert_coords ));
             
-%             keyboard
+            keyboard
         end
         
         function tis = make_vertices(tis, regions)
