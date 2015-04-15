@@ -230,6 +230,17 @@ classdef CellModel
             D = sqrt( (ct(1) - pt(:,1)).^2 + (ct(2) - pt (:,2)).^2 );
         end % get_distance_to
         
+        function theta = get_angle(cells)
+            % Get the angle that the centroids of two cellmodels make to
+            % the horizontal x-axis
+            % 
+            % USAGE: theta = cells.get_angle;
+            % -pi < theta < pi
+            if numel(cells) ~= 2, error('Need precisely 2 cells'); end
+            ct = cat(1,cells.centroid);
+            theta = atan2( diff(ct(:,1)),diff(ct(:,2)) );
+        end
+        
         % ------- Cell set methods -------
         
         function cell = activateCell(cell), cell.isActive = 1; end
@@ -249,6 +260,10 @@ classdef CellModel
             % perimeter, anisotropy based on the new list of vertices.
             % 
             % USAGE: cell = cell.updateCell(tis)
+            
+            % Make sure cell vts are sorted!
+            vts = tis.getVertices(cellm.vIDs);
+            cellm.vIDs = [vts.sort(cellm.centroid).ID];
             cellm.centroid = cellm.get_centroid( tis );
             cellm.area = cellm.get_area( tis );
             cellm.perimeter = cellm.get_perimeter( tis );

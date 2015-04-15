@@ -290,6 +290,7 @@ classdef Tissue
                 vi = tis.vertices(vIDList(i));
 %                 J = find(conn(i,:) == 1); % Idx of connected vertices
                 num_neighbors = numel( vi.cellIDs );
+%                 num_edges = numel(vi.bondIDs);
                 
                 % Only give nonzero velocities for vertices w/ more than 2
                 % cell neighbors (non-fixed cells)
@@ -518,14 +519,14 @@ classdef Tissue
             tis.interVertDist = D;
             
 %             % Perform T1 transitions
-            D(~tis.connectivity) = NaN;
-            D(tis.parameters.fixed_verts,:) = NaN;
-            D = triu(D);
-            D( D==0 ) = NaN;
-            [I,J] = find( D < tis.parameters.t1Threshold);
-            for i = 1:numel(I)
-                tis = tis.t1Transition( tis.getVertices(vIDList([I(i) J(i)])) );
-            end
+%             D(~tis.connectivity) = NaN;
+%             D(tis.parameters.fixed_verts,:) = NaN;
+%             D = triu(D);
+%             D( D==0 ) = NaN;
+%             [I,J] = find( D < tis.parameters.t1Threshold);
+%             for i = 1:numel(I)
+%                 tis = tis.t1Transition( tis.getVertices(vIDList([I(i) J(i)])) );
+%             end
             
             % Consistency check
             if ~tis.isValid, keyboard; end
@@ -585,7 +586,7 @@ classdef Tissue
             % --- Dimensonality ---
             % NO IDEA why matlab throws errors all over the place if you
             % have a validator here...
-            addOptional(p,'dimensionless',false,@(x) true); %default = 0
+            addOptional(p,'dimensionless',false,@(x) isscalar(x)); %default = 0
             
             % --- length scale ---
             addOptional(p,'lengthScale',1,@isscalar); %default = 1
@@ -651,7 +652,7 @@ classdef Tissue
                 sigma = tis.parameters.lineTension;
                 K_a = tis.parameters.areaElasticity;
                 K_p = tis.parameters.perimElasticity;
-                A0 = tis.parameters.targetAreas;
+                A0 = tis.parameters.targetArea;
             end
             
             % Set Intarface-related parameters
@@ -1041,12 +1042,15 @@ classdef Tissue
             end
         end % getCells
         
-        function cells = getActiveCells(tis)
-            % Return all active cells in the tissue
+        function cells = getActiveCells(tis,returnID)
+            % Return all active cells in the tissue (or just the IDs)
             %
             % USAGE: actives = tissue.getActiveCells;
+            %        aIDs = tissue.getActiveCells(1);
             cells = tis.getCells;
             cells = cells( [cells.isActive] > 0 );
+            if nargin < 2, returnID = 0; end
+            if returnID, cells = [cells.cellID]; end
         end % getActiveCells
         
         function cells = getInactiveCells(tis)
@@ -1235,12 +1239,11 @@ classdef Tissue
                 e = tis.interfaces( bIDList(i) );
                 theta = e.angle;
                 % Scale horizontal junctions by factor
-                if (theta > 0 && theta < pi/4) ...
-                        || (theta > 3*pi/4 && theta < pi)
+                if theta < pi/4 || theta > 3*pi/4
                     e.tension = sigma*a;
+                    % set new junctions
+                    tis.interfaces( bIDList(i) ) = e;
                 end
-                % set new junctions
-                tis.interfaces( bIDList(i) ) = e;
                 new_tensions(i) = e.tension;
             end
             
@@ -1258,11 +1261,10 @@ classdef Tissue
         
         function tis = t1Transition( tis, vt )
             % Make a T1 transition (a la Lecuit definition)
-%             figure, tis.draw('showVertices');
-            if numel(vt) > 2
-                keyboard
-            end
-            
+
+            display(['T1 transition between ' num2str(vt(1).ID), ...
+                ' and ' num2str(vt(2).ID) ])
+
             % Swap cell ownership
             % figure out which cells contain each vertex
             cells1 = vt(1).cellIDs;
@@ -1280,14 +1282,15 @@ classdef Tissue
                 keyboard % ill-defined!
             end
             
-            % Rotate vertex positions and add both cells_single IDs
+            % Rotate vertex positions to match the angle of cells_both
+            % and add both cells_single IDs
             midpt(1) = mean([vt.x]); midpt(2) = mean([vt.y]);
             for i = 1:numel(vt)
-                vt(i) = vt(i).rotate(midpt,-pi/2);
+                theta = cells_both.get_angle;
+                vt(i) = vt(i).rotate(midpt,pi-theta);
                 tis.vertices( vt(i).ID ) = vt(i);
                 vt(i).cellIDs = union( vt(i).cellIDs, [cells_single.cellID]);
             end
-            tis = tis.updateVertCoords;
             
             % Swap interface cell ownership and update tissue
             edge.cIDs = [cells_single.cellID];
@@ -1295,36 +1298,38 @@ classdef Tissue
             
             % Cells with only 1 before now has 2 and the bond
             for i = 1:numel(cells_single)
-                % Add vert to cell list
+                % Add vID to cell list
                 cells_single(i).vIDs = union( cells_single(i).vIDs, [vt.ID]);
-                % Add bond to cell list
+                % Add bondID to cell list
                 cells_single(i).bondIDs = union( ...
                     cells_single(i).bondIDs, edge.ID );
+                % Put cell in Tissue
                 tis.cells( cells_single(i).cellID ) = ...
                     cells_single(i).updateCell(tis);
             end
             
             % Figure out which vertex is closer to each cells_both
+            D = cells_both(i).get_distance_to( [[vt.x]',[vt.y]'] );
+            [~,I] = max(D);
             for i = 1:numel(cells_single)
                 % Find the vertex that's farther away
-                D = cells_both(i).get_distance_to( [[vt.x];[vt.y]] );
-                [~,I] = max(D);
                 % remove the vID from cellModel
-                cells_both(i).vIDs = setdiff(cells_both(i).vIDs, vt(I).ID );
+                ind = wrap(I+i-1,2);
+                cells_both(i).vIDs = setdiff(cells_both(i).vIDs, vt(ind).ID );
                 % remove bondID from cellModel
                 cells_both(i).bondIDs = setdiff(cells_both(i).bondIDs, edge.ID );
                 % remove cellID from vertex Model
-                vt(I).cellIDs = setdiff( vt(I).cellIDs, cells_both(i).cellID );
+                vt(ind).cellIDs = setdiff( vt(ind).cellIDs, cells_both(i).cellID );
                 % Put vertex and cells back in tissue
-                tis.vertices( vt(I).ID ) = vt(I);
+                tis.vertices( vt(ind).ID ) = vt(ind);
                 tis.cells( cells_both(i).cellID ) = ...
                     cells_both(i).updateCell(tis);
             end
             
             % Update matrices
+            tis = tis.updateVertCoords;
             tis.interVertDist = squareform(pdist( tis.vert_coords ));
             
-            keyboard
         end
         
         function tis = make_vertices(tis, regions)
@@ -1455,8 +1460,9 @@ classdef Tissue
                 I = I + tis.cells(cellIDList{i}).draw(tis);
                 I = logical(I);
             end
+            I = double(I)* 255;
+            hold on
             
-            I = double(I) * 255;
             % Highlight active cells
             if any(strcmpi(varargin, 'showActive'))
                 % Show active cells as filled-ins
@@ -1530,6 +1536,10 @@ classdef Tissue
                 end
             end
             
+%             hold on,
+%             e = tis.getInterfaces;
+%             e.draw(tis);
+%             
             hold off
             
         end

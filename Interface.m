@@ -35,7 +35,7 @@ classdef Interface
         function theta = get_angle(bond,tis)
             % Returns the angle to x-axis in the I + II quadrants (0 to pi)
             vts = tis.getVertices( bond.vIDs );
-            theta = atan2(diff([vts.y]),diff([vts.x]));
+            theta = atan2(diff([vts.x]),diff([vts.y]));
             theta = abs(theta);
         end
         function E = get_energy(bond,tis)

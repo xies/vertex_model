@@ -27,7 +27,7 @@ classdef myParameterParser < inputParser
                     error( 'Required named parameter %s was not passed to function', obj.required{i} );
                 end
             end
-            parse@inputParser(obj, varargin{:});
+            parse@inputParser(obj, varargin{2},varargin{3:end});
             
         end
 
