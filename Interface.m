@@ -56,12 +56,12 @@ classdef Interface
         
         %  --- Visualize ---
         function draw(bonds,tis)
-            tmax = max([bonds.tension]);
+            tmax = max([bonds.energy]);
             trange = linspace(0,tmax,64);
             C = hot;
             for i = 1:numel(bonds)
                 v = tis.getVertices(bonds(i).vIDs);
-                v.line( C(findnearest(bonds(i).tension,trange),:) );
+                v.line( C(findnearest(bonds(i).energy,trange),:) );
                 hold on
             end
             hold off

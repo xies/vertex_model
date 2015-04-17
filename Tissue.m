@@ -286,6 +286,10 @@ classdef Tissue
             % For now, loop through; vectorize later?
             for i = 1:num_verts
                 
+                if tis.parameters.fixed_verts(i)
+                    continue;
+                end
+                
                 % Find connected vertices
                 vi = tis.vertices(vIDList(i));
 %                 J = find(conn(i,:) == 1); % Idx of connected vertices
@@ -683,7 +687,7 @@ classdef Tissue
             % Set specified cells (IDs) to "active = 1". Used to keep track
             % of who's "ventral" in the model.
             % Usage: tis = tis.activateCell(cellIDs)
-            %        tis = tis.activateCell(cellIDs, alt_tension)
+            %        tis = tis.activateCell(cellIDs, alt_ka)
             % Optionally, set non-active cells' lineTension to a specified
             % value. (See Spahn 2014).
             
@@ -699,13 +703,15 @@ classdef Tissue
             end
             
             if nargin > 2 % Specified alt tension
-                nonActiveTension = varargin{1};
+                nonActiveKA = varargin{1};
                 inactiveCells = tis.getInactiveCells;
                 num_cells = numel(inactiveCells);
                 for i = 1:num_cells
                     
-                    edges = tis.getInterfaces( inactiveCells(i).bondIDs );
-                    tis = tis.setLineTension( [edges.ID], nonActiveTension );
+                    c = inactiveCells(i);
+                    c.areaElasticity = nonActiveKA;
+%                     edges = tis.getInterfaces( inactiveCells(i).bondIDs );
+                    tis.cells(c.cellID) = c;
                     
                 end
             end
@@ -1454,6 +1460,10 @@ classdef Tissue
             
             if numel(tis) > 1, error('Can only handle single tissue; use tis.movie() to show movie.'); end
             
+%             um_per_px = tis.parameters.um_per_px;
+%             x_axis = ((1:tis.Xs) - tis.Xs/2) * um_per_px;
+%             y_axis = ((1:tis.Ys) - tis.Ys/2) * um_per_px;
+            
             I = zeros(tis.Xs,tis.Ys);
             cellIDList = tis.cells.keys();
             for i = 1:numel(cellIDList)
@@ -1502,8 +1512,9 @@ classdef Tissue
                 end
                 I = I + M * 50;
             end
-            
+  
             hold off, imagesc(I), axis equal;
+%             hold off, imagesc(y_axis,x_axis,I), axis equal;
             
             % Highlight vertices
             if any(strcmpi(varargin, 'showVertices'))
@@ -1520,8 +1531,12 @@ classdef Tissue
                 % If input is not a cell object, then display all vectors
                 if ~iscell(V)
                     hold on;
-                    quiver(tis.vert_coords(:,2),tis.vert_coords(:,1), ...
-                        V(:,2),V(:,1),0,'w-');
+                    quiver(...
+                        tis.vert_coords(:,2), ...
+                        tis.vert_coords(:,1), ...
+                        V(:,2), ...
+                        V(:,1), ...
+                        0,'w-');
                 else
                     % If it's a cell obj, then only the given vertex will
                     % have a vector over it
