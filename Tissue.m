@@ -91,6 +91,8 @@ classdef Tissue
         Ys
         merge_threshold_in_px
         t % timestamp
+		t1CoolDown % List of cool down times
+		t1List % list of T1 transition vertices
         
     end
     methods
@@ -124,6 +126,8 @@ classdef Tissue
                     tis.Xs = tis_old.Xs; tis.Ys = tis_old.Ys;
                     tis.merge_threshold_in_px = tis_old.merge_threshold_in_px;
                     tis.t = tis_old.t;
+                    tis.t1List = tis_old.t1List;
+                    tis.t1CoolDown = tis_old.t1CoolDown;
                     tis.vert_coords = tis_old.vert_coords;
                     tis.connectivity = tis_old.connectivity;
                     tis.interVertDist = tis_old.interVertDist;
@@ -172,6 +176,8 @@ classdef Tissue
                     % Make interfaces
                     tis = tis.connect_interfaces(conn_opt);
                     tis.interVertDist = squareform( pdist(tis.vert_coords) );
+                    tis.t1List = [NaN NaN]';
+                    tis.t1CoolDown = NaN;
                     
                 end
                 
@@ -522,15 +528,29 @@ classdef Tissue
             D = squareform(pdist(tis.vert_coords));
             tis.interVertDist = D;
             
-%             % Perform T1 transitions
-%             D(~tis.connectivity) = NaN;
-%             D(tis.parameters.fixed_verts,:) = NaN;
-%             D = triu(D);
-%             D( D==0 ) = NaN;
-%             [I,J] = find( D < tis.parameters.t1Threshold);
-%             for i = 1:numel(I)
-%                 tis = tis.t1Transition( tis.getVertices(vIDList([I(i) J(i)])) );
-%             end
+			% Advance T1 transition timestamp, delete any entries that
+			% are no longer cooling down
+			if ~isempty(tis.t1List)
+				tis.t1CoolDown = tis.t1CoolDown - 1;
+				I = tis.t1CoolDown <= 0;
+                tis.t1CoolDown(I) = [];
+				tis.t1List(:,I) = [];
+			end
+			
+            % Perform T1 transitions
+            D(~tis.connectivity) = NaN;
+            D(tis.parameters.fixed_verts,:) = NaN;
+            D = triu(D);
+            D( D==0 ) = NaN;
+            [I,J] = find( D < tis.parameters.t1Threshold );
+            for i = 1:numel(I)
+				vID2transit = sort( vIDList([I(i) J(i)]) );
+				match = bsxfun(@eq,vID2transit',[tis.t1List vID2transit']);
+				match = logical(sum(match,1));
+				if all(match <2)
+	                tis = tis.t1Transition( tis.getVertices(vID2transit) );
+				end
+            end
             
             % Consistency check
             if ~tis.isValid, keyboard; end
@@ -875,14 +895,29 @@ classdef Tissue
                             for j = 1:numel(connectedVertIDs)
                                 
                                 that_vertex = tis.getVertices( connectedVertIDs(j) );
-                                % Check for double counting:
+                                % Check for double counting: if interface
+                                % already connected, then just add
+                                % candicate cells to the count
                                 J = find( vIDsList == connectedVertIDs(j) );
-                                if conn(i,J) || conn(J,i), continue; end
+                                if conn(i,J) == 1 || conn(J,i) == 1
+                                    % Add cellID to edge
+                                    edge = tis.getInterfaceByvIDs( ...
+                                        [this_vertex.ID that_vertex.ID]);
+                                    edge.cIDs = unique([edge.cIDs this_cell.cellID]);
+                                    tis.interfaces(edge.ID) = edge;
+                                    % Add bondID to cell
+                                    this_cell.bondIDs = unique([this_cell.bondIDs edge.ID]);
+                                    tis.cells(this_cell.cellID) = this_cell;
+                                    continue
+                                elseif conn(i,J) > 2 || conn(J,i) == 2
+                                    keyboard;
+                                end
                                 
                                 % Instantiate an Interface
                                 tis.interfaces(ID) = ...
                                     Interface( ID,[this_vertex that_vertex], ...
                                     this_cell.cellID, tis );
+                                
                                 % Tell vertices about interface
                                 this_vertex.bondIDs = unique([this_vertex.bondIDs ID]);
                                 tis.vertices( this_vertex.ID ) = this_vertex;
@@ -891,6 +926,7 @@ classdef Tissue
                                 if numel( that_vertex.bondIDs) > 3
                                     keyboard;
                                 end
+                                
                                 % Tell cells about interface
                                 this_cell.bondIDs = unique([this_cell.bondIDs ID]);
                                 tis.cells( this_cell.cellID ) = this_cell;
@@ -902,6 +938,11 @@ classdef Tissue
                                 
                             end
                         end
+                    end
+                    
+                    % Clean up round (?)
+                    for i = 1:tis.interfaces.length
+                        
                     end
                     
                 otherwise
@@ -1024,6 +1065,19 @@ classdef Tissue
                 if flag, return; end
             end
         end % connected
+        
+        function M = corona_measurement(tis,cellIDs,measurement)
+            % Measure
+            if nargin < 3,
+                measurement = cellIDs;
+                cellIDs = tis.cells.keys; cellIDs = [cellIDs{:}];
+            end
+            M = cell(1,numel(cellIDs));
+            for i = 1:numel(cellIDs)
+                neighbors = tis.neighborsOfCell(cellIDs(i),1);
+                M{i} = [neighbors.(measurement)];
+            end
+        end
         
         % ----- Cell handling and measurements ------
         
@@ -1189,6 +1243,14 @@ classdef Tissue
             end
         end
         
+        function e = getInterfaceByvIDs(tis,vIDs)
+            % Returns the edge that has the given vIDs
+            e = tis.getInterfaces;
+            allVIDs = cellfun(@sort,{e.vIDs},'UniformOutput',0);
+            e = e(cellfun(@(x) all( x==sort(vIDs) ),allVIDs));
+            if numel(e) > 1, keyboard; end
+        end
+        
         function tis = setLineTension(tis,bIDList,L)
             % Set the line tension of each bond in the tissue.
             % Can specify each bond or have them be all the same
@@ -1278,6 +1340,7 @@ classdef Tissue
             % Figure out which bonds contain both vertices (should be only
             % one!)
             edge = tis.interfaces( intersect(vt(1).bondIDs, vt(2).bondIDs) );
+            other_edges = tis.getInterfaces( [vt.bondIDs] );
             
             % figure out which cells contain both or just one
             cells_both = tis.getCells( intersect(cells1,cells2) );
@@ -1300,7 +1363,7 @@ classdef Tissue
             
             % Swap interface cell ownership and update tissue
             edge.cIDs = [cells_single.cellID];
-            tis.interfaces( edge.ID) = edge.updateInterface(tis);
+            tis.interfaces(edge.ID) = edge.updateInterface(tis);
             
             % Cells with only 1 before now has 2 and the bond
             for i = 1:numel(cells_single)
@@ -1315,28 +1378,58 @@ classdef Tissue
             end
             
             % Figure out which vertex is closer to each cells_both
-            D = cells_both(i).get_distance_to( [[vt.x]',[vt.y]'] );
+            D = cells_both(1).get_distance_to( [[vt.x]',[vt.y]'] );
             [~,I] = max(D);
             for i = 1:numel(cells_single)
                 % Find the vertex that's farther away
                 % remove the vID from cellModel
                 ind = wrap(I+i-1,2);
+                other_ind = wrap(I+i,2);
                 cells_both(i).vIDs = setdiff(cells_both(i).vIDs, vt(ind).ID );
                 % remove bondID from cellModel
                 cells_both(i).bondIDs = setdiff(cells_both(i).bondIDs, edge.ID );
+                
+                % Get bonds that have this CellModel and remove the further
+                % vertex and add the nearest vertex
+                bIDs = intersect([other_edges.ID],cells_both(i).bondIDs);
+                for j = 1:2
+                    this_bond = tis.interfaces( bIDs(j) );
+                    % Add/delete vID to INTERFACE
+                    this_bond.vIDs = setdiff( this_bond.vIDs, vt(ind).ID );
+                    this_bond.vIDs = union( this_bond.vIDs, vt(other_ind).ID );
+                    tis.interfaces( bIDs(j) ) = this_bond.updateInterface(tis);
+                    % Add/delete bonds to VERTEX
+                    vt(ind).bondIDs = setdiff( vt(ind).bondIDs, this_bond.ID );
+                    vt(other_ind).bondIDs = unique( [vt(other_ind).bondIDs this_bond.ID] );
+                end
+                
                 % remove cellID from vertex Model
                 vt(ind).cellIDs = setdiff( vt(ind).cellIDs, cells_both(i).cellID );
                 % Put vertex and cells back in tissue
                 tis.vertices( vt(ind).ID ) = vt(ind);
+                tis.vertices( vt(other_ind).ID ) = vt(other_ind);
                 tis.cells( cells_both(i).cellID ) = ...
                     cells_both(i).updateCell(tis);
             end
+                            
+            %%% DEBUG!!!!!!!!!! %%%
+            if any(cellfun(@numel,{vt.bondIDs}) ~= 3)
+                keyboard
+            end
+            %%%%%%%%
             
             % Update matrices
             tis = tis.updateVertCoords;
             tis.interVertDist = squareform(pdist( tis.vert_coords ));
+
+			% Keep track of T1 transitions
+			% Set cool down time to 10 steps
+			tis.t1List = cat(2,tis.t1List,sort([vt.ID])');
+		    tis.t1CoolDown = [tis.t1CoolDown 10];
             
-        end
+            keyboard;
+            
+        end % t1Transition
         
         function tis = make_vertices(tis, regions)
             % Checks if vertices are not beyond image border, touching at 
@@ -1465,12 +1558,13 @@ classdef Tissue
 %             y_axis = ((1:tis.Ys) - tis.Ys/2) * um_per_px;
             
             I = zeros(tis.Xs,tis.Ys);
-            cellIDList = tis.cells.keys();
-            for i = 1:numel(cellIDList)
-                I = I + tis.cells(cellIDList{i}).draw(tis);
-                I = logical(I);
-            end
-            I = double(I)* 255;
+            imagesc(I)
+%             cellIDList = tis.cells.keys();
+%             for i = 1:numel(cellIDList)
+%                 I = I + tis.cells(cellIDList{i}).draw(tis);
+%                 I = logical(I);
+%             end
+%             I = double(I)* 255;
             hold on
             
             % Highlight active cells
@@ -1515,7 +1609,8 @@ classdef Tissue
   
             hold off, imagesc(I), axis equal;
 %             hold off, imagesc(y_axis,x_axis,I), axis equal;
-            
+            hold on, tis.getInterfaces.draw(tis);
+
             % Highlight vertices
             if any(strcmpi(varargin, 'showVertices'))
                 hold on

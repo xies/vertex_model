@@ -23,6 +23,7 @@ classdef Interface
                 % --- Set measurements ---
                 obj.angle = obj.get_angle(tis);
                 obj.length = obj.get_length(tis);
+                obj.tension = 1;
             end
         end
         
@@ -56,9 +57,19 @@ classdef Interface
         
         %  --- Visualize ---
         function draw(bonds,tis)
+            for i = 1:numel(bonds)
+                v = tis.getVertices(bonds(i).vIDs);
+                v.line();
+%                 v.draw()
+                hold on
+            end
+            hold off
+        end
+        
+        function drawColor(bonds,tis)
             tmax = max([bonds.energy]);
             trange = linspace(0,tmax,64);
-            C = hot;
+            C = jet;
             for i = 1:numel(bonds)
                 v = tis.getVertices(bonds(i).vIDs);
                 v.line( C(findnearest(bonds(i).energy,trange),:) );

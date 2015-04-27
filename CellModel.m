@@ -345,7 +345,7 @@ classdef CellModel
             [xe,ye] = poly2edge(vx,vy);
             Xs = tis.Xs; Ys = tis.Ys;
             image = accumarray(round([xe,ye]), 1, [Xs Ys], @max);
-            
+%             if cellm.cellID == 41, keyboard; end
         end % draw
         
         function image = drawMask(cellm,tis)

@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 7;
-HEX_NUM_Y = 7;
+HEX_NUM_X = 4;
+HEX_NUM_Y = 4;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -21,20 +21,20 @@ l = max(size(regions)) / max(HEX_NUM_X,HEX_NUM_Y) / 2;
 
 DIMENSIONLESS = 0;
 
-AREA_ELASTICITY = 2.5e-5;
-PERIM_ELASTICITY = 0;
-LINE_TENSION = 0.2e-5;
+AREA_ELASTICITY = 1e-9;
+PERIM_ELASTICITY = 1e-7;
+LINE_TENSION = 10;
 FORCE_SCALE = 1; % sigma_0, the force-scale!
 
 CONNECTIVITY = 'purse string';
 %  CONNECTIVITY = 'network';
 % CONNECTIVITY = 'purse string and network';
 
-STEPS = 1000; % number of constriction steps
+STEPS = 5000; % number of constriction steps
 TIME_STEP = 0.01;
-VISCOSITY_COEFF = 1;
+VISCOSITY_COEFF = 1e-2;
 
-JITTERING_STD = l/15;
+JITTERING_STD = l/5;
 
 %% Initialize model
 
@@ -69,7 +69,7 @@ if DIMENSIONLESS
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 10, ...
-        't1Threshold',1 ...
+        't1Threshold',3 ...
         };
 else
     param_config = {...
@@ -86,7 +86,7 @@ else
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 10 ...
-        't1Threshold',1 ...
+        't1Threshold',3 ...
         };
 end
 
@@ -95,11 +95,13 @@ T = toc;
 display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
 %% Set contractility gradient
+
 tic
 
-MODEL_FUN = @uniform_cutoff;
-CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*0.1;
-% CONTRACTILE_WIDTH = 30; % pxs
+MODEL_FUN = @variable_cutoff;
+CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*5e2;
+CONT_STD = CONTRACTILITY_MAGNITUDE * .2;
+CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = tis_init.parameters.areaElasticity*1;
 
 % Activate "ventral fate"
@@ -110,11 +112,11 @@ tis_init = tis_init.activateCell(cIDs,ALT_TENSION);
 figure(1),tis_init.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
-midline = tis_init.Xs/2;
-% contract_params = [CONTRACTILITY_MAGNITUDE, midline, CONTRACTILE_WIDTH];
-contract_params = CONTRACTILITY_MAGNITUDE;
+midline_x = tis_init.Xs/2; midline_y = tis_init.Ys/2;
+contract_params = [CONTRACTILITY_MAGNITUDE, CONT_STD];
+% contract_params = [CONTRACTILITY_MAGNITUDE midline_y,...
+%     CONTRACTILE_WIDTH];
 tis_init = tis_init.setContractilityModel(MODEL_FUN,contract_params);
-tis_init = tis_init.setContractility(CONTRACTILITY_MAGNITUDE*10*ones(1,2),[19 20]);
 C = tis_init.getContractility;
 T = toc;
 display(['Contractility set in ' num2str(T) ' sec'])
@@ -151,17 +153,17 @@ for i = 1:STEPS
     tissueArray( i + 1 ) = tis;
     E(i) = tis.get_energy;
     
-%     if i>1 && abs(E(i) - E(i-1)) < 1, break; end
-    if max(displacements) < 1e-2, continue; end
+    if i>1 && abs(E(i) - E(i-1)) < eps, break; end
+%     if max(displacements) < 1e-2, continue; end
     
-    if mod(i,10) == 0
-        % Add random noise
-        C(cIDs) = max(C(cIDs) + CONTRACTILITY_MAGNITUDE/100 * randn(1,numel(cIDs)),0);
-%         C(cIDs) = min(C(cIDs),5e-4);
-        tis = tis.setContractility(C);
-    end
+%     if mod(i,10) == 0
+%         % Add random noise
+%         C(cIDs) = max(C(cIDs) + CONTRACTILITY_MAGNITUDE/100 * randn(1,numel(cIDs)),0);
+% %         C(cIDs) = min(C(cIDs),5e-4);
+%         tis = tis.setContractility(C);
+%     end
     
-    tis.draw('showVectors',tis.parameters.dt_per_frame * displacements, ...
+    tis.draw('showVectors',displacements, ...
         'showContractile');
     title(['Time step = ' num2str(i)]);
     figure(2)
@@ -175,4 +177,4 @@ for i = 1:STEPS
 end
 
 tissueArray(i+1:end) = [];
-save(['~/Dropbox (MIT)/model_contractility_to_Ka_1' ],'tissueArray');
+% save(['~/Dropbox (MIT)/model_contractility_to_Ka_1' ],'tissueArray');
