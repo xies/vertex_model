@@ -31,7 +31,12 @@ classdef Interface
         function l = get_length(bond,tis)
             % Gets the length of current edge
             vts = tis.getVertices( bond.vIDs );
-            l = vts(1).distance(vts(2));
+            if ~isempty(tis.parameters)
+                x = tis.parameters.um_per_px^2;
+            else
+                x = 1;
+            end
+            l = vts(1).distance(vts(2)) / x;
         end
         function theta = get_angle(bond,tis)
             % Returns the angle to x-axis in the I + II quadrants (0 to pi)

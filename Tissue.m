@@ -392,14 +392,14 @@ classdef Tissue
 
                 end
                 
-                if any(any(isnan( V ))), keyboard; end
+%                 if any(any(isnan( V ))), keyboard; end
                 
             end
             
-            % Check that fixed vertices have not moved
-            if any( V(tis.parameters.fixed_verts,:) > 0 )
-                keyboard;
-            end
+%             % Check that fixed vertices have not moved
+%             if any( V(tis.parameters.fixed_verts,:) > 0 )
+%                 keyboard;
+%             end
             
         end % get_velocities
         
@@ -553,7 +553,7 @@ classdef Tissue
             end
             
             % Consistency check
-            if ~tis.isValid, keyboard; end
+%             if ~tis.isValid, keyboard; end
             
             % Advance time stamp by one
             if nargin < 3,

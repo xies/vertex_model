@@ -198,7 +198,13 @@ classdef CellModel
             vt = tis.getVertices( cellm.vIDs );
             vt = sort(vt, cellm.centroid); % sort counter-clockwise
             x = [vt.x]; y = [vt.y];
-            a = polyarea( x, y);
+            if ~isempty(tis.parameters)
+                l = tis.parameters.um_per_px^2;
+            else
+                l = 1;
+            end
+            a = polyarea( x, y) / l^2;
+            
         end % get_area
         
         function p = get_perimeter(cellm,tis)
