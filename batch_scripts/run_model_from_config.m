@@ -10,6 +10,7 @@ numY = str2double(get_field('num_cell_y'));
 hex_angle = get_field('hex_angle');
 initialization.model_params = {hex_angle,numX,numY};
 initialization.steps = str2double(get_field('Nsteps')); % number of constriction steps
+initialization.tolerance = str2double(get_field('tol'));
 l = 512 / max(numX,numY) / 2;
 initialization.cell_size = ...
     str2double(get_field('cell_size')); % number of constriction steps
@@ -36,9 +37,9 @@ contract.ventral.alt_tension = str2double(get_field('alt_tension'));
 % Set the value of contractility in each cell
 
 eval(['contract.contractility.model = ' ...
-    get_field('contractModel')]);
+    get_field('contractModel') ';']);
 eval(['contract.contractility.params = ' ...
-    get_field('contractParams')]);
+    get_field('contractParams') ';']);
 
 tisArr = run_model(initialization,params,contract);
 

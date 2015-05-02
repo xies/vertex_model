@@ -20,7 +20,7 @@ display(['Tissue initialized in ' num2str(T) ' sec'])
 A0 = mean([tis.getCells.area]);
 P0 = mean([tis.getCells.perimeter]);
 l = P0/6; % lattice length_scale
-um_per_px = sqrt(initialize.cell_size/A0); % pixel size
+um_per_px = sqrt(init.cell_size/A0); % pixel size
 
 if params.dimensionless
     param_config = {...
@@ -97,7 +97,10 @@ for i = 1:STEPS
     tisArr( i + 1 ) = tis;
     E(i) = tis.get_energy;
     
-    if i>1 && abs(E(i) - E(i-1)) < 1e-5, break; end
+    if i>1 && abs(E(i) - E(i-1)) < init.tolerance
+        display(['Change in energy is ' num2str(E(i) - E(i-1))])
+        break
+    end
     if i>1 && E(i) - E(i-1) > 0, error('Unstable regime!'); end
     
     T = toc;
