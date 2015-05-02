@@ -199,11 +199,11 @@ classdef CellModel
             vt = sort(vt, cellm.centroid); % sort counter-clockwise
             x = [vt.x]; y = [vt.y];
             if ~isempty(tis.parameters)
-                l = tis.parameters.um_per_px^2;
+                l = tis.parameters.um_per_px;
             else
                 l = 1;
             end
-            a = polyarea( x, y) / l^2;
+            a = polyarea( x, y) * l^2;
             
         end % get_area
         

@@ -665,6 +665,12 @@ classdef Tissue
             tis.parameters.fixed_verts = cellfun( ...
                 @numel,{tis.getVertices.cellIDs}) < 3;
             
+            % Correct for um_per_px
+            tis.parameters.targetArea = ...
+                tis.parameters.targetArea * tis.parameters.um_per_px^2;
+            tis.parameters.targetPerimeter = ...
+                tis.parameters.targetPerimeter * tis.parameters.um_per_px;
+            
             if tis.parameters.dimensionless
                 % Find dimensional parameters
                 sigma = tis.parameters.forceScale; % force dimension
@@ -699,6 +705,18 @@ classdef Tissue
                 num2str( K_p / K_a / A0)])
             display('(Should be ~0.04)')
             display('---------------------')
+            
+            % Update cells and interfaces
+            cellIDList = tis.cells.keys; cellIDList = [cellIDList{:}];
+            for i = 1:tis.cells.length
+                tis.cells(cellIDList(i)) = ...
+                    tis.cells(cellIDList(i)).updateCell(tis);
+            end
+            bIDList = tis.interfaces.keys; bIDList = [bIDList{:}];
+            for i = 1:tis.interfaces.length
+                tis.interfaces(bIDList(i)) = ...
+                    tis.interfaces(bIDList(i)).updateInterface(tis);
+            end
             
         end % setParameters
         

@@ -36,7 +36,7 @@ classdef Interface
             else
                 x = 1;
             end
-            l = vts(1).distance(vts(2)) / x;
+            l = vts(1).distance(vts(2)) * x;
         end
         function theta = get_angle(bond,tis)
             % Returns the angle to x-axis in the I + II quadrants (0 to pi)
