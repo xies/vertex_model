@@ -41,8 +41,8 @@ eval(['contract.contractility.model = ' ...
 eval(['contract.contractility.params = ' ...
     get_field('contractParams') ';']);
 
-tisArr = run_model(initialization,params,contract);
+[tisArr,F] = run_model(initialization,params,contract);
 
-save(OUT_DIR,'tisArr')
+save(OUT_DIR)
 
 end

@@ -1,4 +1,4 @@
-function tisArr = run_model(init,params,contraction)
+function [tisArr,F] = run_model(init,params,contraction)
 % Wrapper for running vertex model
 
 % Construct rough initial cells
@@ -109,5 +109,6 @@ for i = 1:STEPS
 end
 
 tisArr(i+1:end) = [];
+F = tisArr.movie('showContractility');
 
 end
