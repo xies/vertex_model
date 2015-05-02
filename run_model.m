@@ -17,11 +17,10 @@ T = toc;
 display(['Tissue initialized in ' num2str(T) ' sec'])
 
 % Set parameters
-
 A0 = mean([tis.getCells.area]);
 P0 = mean([tis.getCells.perimeter]);
 l = P0/6; % lattice length_scale
-um_per_px = sqrt(0.02/A0); % pixel size
+um_per_px = sqrt(initialize.cell_size/A0); % pixel size
 
 if params.dimensionless
     param_config = {...
