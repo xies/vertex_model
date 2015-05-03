@@ -1672,7 +1672,7 @@ classdef Tissue
             
         end
         
-        function F = movie(tissues,varargin)
+        function vid = movie(tissues,varargin)
             % Make a movie of tissue evolving. Can return just the
             % outlines of cells, or also shade-in the active cells.
             %
@@ -1685,11 +1685,25 @@ classdef Tissue
                 opt = varargin{1};
             end
             
-            F = zeros(tissues(1).Xs, tissues(1).Ys, num_frames);
-            
+            vid = VideoWriter('~/Desktop/model.avi');
+            vid.Quality = 100;
+            vid.FrameRate = 7;
+            open(vid);
             for f = 1:num_frames
-                F(:,:,f) = tissues(f).draw(opt);
+                tissues(f).draw(opt);
+                title(['Step ' num2str(f)]);
+                vid.writeVideo(getframe(gcf));
             end
+            close(vid);
+            
+%             for f = 1:num_frames
+%                 F(
+%             end
+%             F = zeros(tissues(1).Xs, tissues(1).Ys, num_frames);
+            
+%             for f = 1:num_frames
+%                 F(:,:,f) = tissues(f).draw(opt);
+%             end
             
         end
         
