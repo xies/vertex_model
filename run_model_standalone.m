@@ -21,9 +21,9 @@ l = max(size(regions)) / max(HEX_NUM_X,HEX_NUM_Y) / 2;
 
 DIMENSIONLESS = 0;
 
-AREA_ELASTICITY = 2.5e-9;
+AREA_ELASTICITY = 2.5e-2;
 PERIM_ELASTICITY = 0;
-LINE_TENSION = 0.2e-9;
+LINE_TENSION = 0.2e-2;
 FORCE_SCALE = 1; % sigma_0, the force-scale!
 
 CONNECTIVITY = 'purse string';
@@ -32,7 +32,7 @@ CONNECTIVITY = 'purse string';
 
 STEPS = 10000; % number of constriction steps
 TIME_STEP = 0.01;
-VISCOSITY_COEFF = 1e3;
+VISCOSITY_COEFF = 1e-3;
 
 JITTERING_STD = l/5;
 
@@ -51,7 +51,7 @@ verts = tis_init.vert_coords;
 A0 = mean([tis_init.getCells.area]);
 P0 = mean([tis_init.getCells.perimeter]);
 l = P0/6; % lattice length_scale
-um_per_px = sqrt(1/A0); % pixel size
+um_per_px = sqrt(0.5/A0); % pixel size
 
 if DIMENSIONLESS
     param_config = {...
@@ -153,7 +153,7 @@ for i = 1:STEPS
     tissueArray( i + 1 ) = tis;
     E(i) = tis.get_energy;
     
-    if i>1 && abs(E(i) - E(i-1)) < 1e-5, break; end
+    if i>1 && abs(E(i) - E(i-1)) < eps, break; end
     if i>1 && E(i) - E(i-1) > 0, error('Unstable regime!'); end
     
 %     if mod(i,10) == 0
