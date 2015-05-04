@@ -714,7 +714,8 @@ classdef Tissue
             display(['Force magnitude = ' num2str( fMag ) ])
             display('-')
             display(['Velocity magnitude = '...
-                num2str( fMag * tis.parameters.stepSize / tis.parameters.viscosity ) ])
+                num2str( fMag * tis.parameters.stepSize / ...
+                tis.parameters.viscosity / tis.parameters.um_per_px ) ])
             display('---------------------');
             
             % Update cells and interfaces
@@ -1159,6 +1160,8 @@ classdef Tissue
             cells = tis.getCells;
             ct = cat(1,cells.centroid);
             cellIDList = tis.cells.keys();
+            box([1,3]) = box([1,3])*tis.Xs;
+            box([2,4]) = box([2,4])*tis.Ys;
             
             I = ct(:,1) >= box(1) & ct(:,1) <= box(3);
             I = I & ct(:,2) >= box(2) & ct(:,2) <= box(4);

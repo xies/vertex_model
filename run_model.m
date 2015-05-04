@@ -101,7 +101,21 @@ for i = 1:STEPS
         display(['Change in energy is ' num2str(E(i) - E(i-1))])
         break
     end
-    if i>1 && E(i) - E(i-1) > 0, error('Unstable regime!'); end
+    if i>1 && E(i) - E(i-1) > 0
+        % If unstable, try again with smaller viscosity (by 1/5) each time
+        display(['New viscosity: ' num2str(tis.parameters.viscosity / 5)])
+        verts = tissueArray(i-1).vert_coords;
+        tis.parameters.viscosity = tis.parameters.viscosity / 5;
+        displacements = tis.get_force ...
+            / tis.parameters.viscosity * tis.parameters.lengthScale ...
+            * tis.parameters.stepSize / um_per_px;
+        verts = verts + displacements;
+        
+        tis = tis.evolve( verts );
+        tissueArray( i + 1 ) = tis;
+        E(i) = tis.get_energy;
+        
+    end
     
     T = toc;
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])

@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 8;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 4;
+HEX_NUM_Y = 4;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -32,9 +32,9 @@ CONNECTIVITY = 'purse string';
 
 STEPS = 500; % number of constriction steps
 TIME_STEP = 0.01;
-VISCOSITY_COEFF = 0.2;
+VISCOSITY_COEFF = 1e2;
 
-JITTERING_STD = l/5;
+JITTERING_STD = 0;
 
 %% Initialize model
 
@@ -99,21 +99,20 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @uniform_cutoff;
-CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*0;
-CONT_STD = CONTRACTILITY_MAGNITUDE * 0;
+CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*80;
+CONT_STD = CONTRACTILITY_MAGNITUDE * 20;
 CONTRACTILE_WIDTH = 40; % pxs
-ALT_TENSION = tis_init.parameters.areaElasticity*1;
+ALT_TENSION = 1;
 
 % Activate "ventral fate"
-box = [ tis_init.Xs * (1/2-1/12), tis_init.Ys * (1/2-1/12) ...
-    tis_init.Xs * (1/2+1/12), tis_init.Ys * (1/2+1/12)];
+box = [ 1/2-1/12 , 1/2-1/12 , 1/2+1/12 , 1/2+1/12 ];
 cIDs = tis_init.getCellsWithinRegion(box);
 tis_init = tis_init.activateCell(cIDs,ALT_TENSION);
 figure(1),tis_init.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
 midline_x = tis_init.Xs/2; midline_y = tis_init.Ys/2;
-contract_params = [CONTRACTILITY_MAGNITUDE, CONT_STD];
+contract_params = [CONTRACTILITY_MAGNITUDE];
 % contract_params = [CONTRACTILITY_MAGNITUDE midline_y,...
 %     CONTRACTILE_WIDTH];
 tis_init = tis_init.setContractilityModel(MODEL_FUN,contract_params);
@@ -154,7 +153,21 @@ for i = 1:STEPS
     E(i) = tis.get_energy;
     
     if i>1 && abs(E(i) - E(i-1)) < eps, break; end
-    if i>1 && E(i) - E(i-1) > 0, error('Unstable regime!'); end
+    if i>1 && E(i) - E(i-1) > 0
+        % If unstable, try again with smaller viscosity (by 1/5) each time
+        display(['New viscosity: ' num2str(tis.parameters.viscosity / 5)])
+        verts = tissueArray(i-1).vert_coords;
+        tis.parameters.viscosity = tis.parameters.viscosity / 5;
+        displacements = tis.get_force ...
+            / tis.parameters.viscosity * tis.parameters.lengthScale ...
+            * tis.parameters.stepSize / um_per_px;
+        verts = verts + displacements;
+        
+        tis = tis.evolve( verts );
+        tissueArray( i + 1 ) = tis;
+        E(i) = tis.get_energy;
+        
+    end
     
 %     if mod(i,10) == 0
 %         % Add random noise
