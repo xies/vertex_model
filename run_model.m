@@ -112,7 +112,7 @@ for i = 1:STEPS
         verts = verts + displacements;
         
         tis = tis.evolve( verts );
-        tissueArray( i + 1 ) = tis;
+        tisArr( i + 1 ) = tis;
         E(i) = tis.get_energy;
         
     end

@@ -557,7 +557,8 @@ classdef Tissue
             
             % Advance time stamp by one
             if nargin < 3,
-                tis.t = tis.t + tis.parameters.dt_per_frame;
+                tis.t = tis.t + ...
+                    tis.parameters.stepSize * tis.parameters.dt_per_frame;
             end
             
         end % evolve
