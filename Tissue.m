@@ -679,6 +679,7 @@ classdef Tissue
                 K_p = tis.parameters.perimElasticity * sigma / lambda;
                 A0 = lambda^2 * 3 * sqrt(3) / 2;
             else
+                lambda = tis.parameters.lengthScale; % length simension
                 sigma = tis.parameters.lineTension;
                 K_a = tis.parameters.areaElasticity;
                 K_p = tis.parameters.perimElasticity;
@@ -696,6 +697,7 @@ classdef Tissue
             tis = tis.setPerimElasticity;
             tis = tis.setTargetArea;
             
+            % Sanity check paramter regime
             display('---Parameter check---')
             display(['Normalized line tension = '...
                 num2str( sigma / K_a / A0^3/2)])
@@ -704,7 +706,16 @@ classdef Tissue
             display(['Normalized perimeter tension = '...
                 num2str( K_p / K_a / A0)])
             display('(Should be ~0.04)')
-            display('---------------------')
+            display('---------------------');
+            display('')
+            display('---Force magnitud check---')
+            fMag = (- 6*sigma * lambda + K_a * A0^2 + K_p * (6*lambda)^2) ...
+                * tis.cells.length;
+            display(['Force magnitude = ' num2str( fMag ) ])
+            display('-')
+            display(['Velocity magnitude = '...
+                num2str( fMag * tis.parameters.stepSize / tis.parameters.viscosity ) ])
+            display('---------------------');
             
             % Update cells and interfaces
             cellIDList = tis.cells.keys; cellIDList = [cellIDList{:}];
@@ -1668,6 +1679,7 @@ classdef Tissue
 %             e = tis.getInterfaces;
 %             e.draw(tis);
 %             
+            axis off
             hold off
             
         end
