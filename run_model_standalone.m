@@ -21,9 +21,9 @@ l = max(size(regions)) / max(HEX_NUM_X,HEX_NUM_Y) / 2;
 
 DIMENSIONLESS = 0;
 
-AREA_ELASTICITY = 2.5e-2;
-PERIM_ELASTICITY = 0;
-LINE_TENSION = 0.2e-2;
+AREA_ELASTICITY = 6e-5;
+PERIM_ELASTICITY = 1e-4;
+LINE_TENSION = 1;
 FORCE_SCALE = 1; % sigma_0, the force-scale!
 
 CONNECTIVITY = 'purse string';
@@ -32,7 +32,7 @@ CONNECTIVITY = 'purse string';
 
 STEPS = 500; % number of constriction steps
 TIME_STEP = 0.01;
-VISCOSITY_COEFF = 1e-3;
+VISCOSITY_COEFF = 0.2;
 
 JITTERING_STD = l/5;
 
@@ -51,7 +51,7 @@ verts = tis_init.vert_coords;
 A0 = mean([tis_init.getCells.area]);
 P0 = mean([tis_init.getCells.perimeter]);
 l = P0/6; % lattice length_scale
-um_per_px = sqrt(0.5/A0); % pixel size
+um_per_px = sqrt(40/A0); % pixel size
 
 if DIMENSIONLESS
     param_config = {...
@@ -146,7 +146,7 @@ for i = 1:STEPS
     verts = tis.vert_coords;
     displacements = tis.get_force ...
         /tis.parameters.viscosity * tis.parameters.lengthScale ...
-        * tis.parameters.stepSize;
+        * tis.parameters.stepSize / um_per_px;
     verts = verts + displacements;
     
     tis = tis.evolve( verts );
@@ -163,12 +163,12 @@ for i = 1:STEPS
 %         tis = tis.setContractility(C);
 %     end
     
+%     figure(1)
 %     tis.draw('showVectors',displacements, ...
 %         'showContractile');
 %     title(['Time step = ' num2str(i)]);
 %     figure(2)
 %     hist(displacements(:),30);
-%     figure(1)
 %     drawnow;
     
     T = toc;

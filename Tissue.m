@@ -1654,13 +1654,14 @@ classdef Tissue
                 V = varargin{ind+1};
                 % If input is not a cell object, then display all vectors
                 if ~iscell(V)
+                    figure(1)
                     hold on;
                     quiver(...
                         tis.vert_coords(:,2), ...
                         tis.vert_coords(:,1), ...
                         V(:,2), ...
                         V(:,1), ...
-                        0,'w-');
+                        0,'r-');
                 else
                     % If it's a cell obj, then only the given vertex will
                     % have a vector over it
@@ -1675,10 +1676,6 @@ classdef Tissue
                 end
             end
             
-%             hold on,
-%             e = tis.getInterfaces;
-%             e.draw(tis);
-%             
             axis off
             hold off
             
