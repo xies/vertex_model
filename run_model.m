@@ -89,7 +89,7 @@ for i = 1:STEPS
     tic
     verts = tis.vert_coords;
     displacements = tis.get_force ...
-        /tis.parameters.viscosity * tis.parameters.lengthScale ...
+        / tis.parameters.viscosity * tis.parameters.lengthScale ...
         * tis.parameters.stepSize;
     verts = verts + displacements;
     
@@ -102,19 +102,7 @@ for i = 1:STEPS
         break
     end
     if i>1 && E(i) - E(i-1) > 0
-        % If unstable, try again with smaller viscosity (by 1/5) each time
-        display(['New viscosity: ' num2str(tis.parameters.viscosity / 5)])
-        verts = tissueArray(i-1).vert_coords;
-        tis.parameters.viscosity = tis.parameters.viscosity / 5;
-        displacements = tis.get_force ...
-            / tis.parameters.viscosity * tis.parameters.lengthScale ...
-            * tis.parameters.stepSize / um_per_px;
-        verts = verts + displacements;
-        
-        tis = tis.evolve( verts );
-        tisArr( i + 1 ) = tis;
-        E(i) = tis.get_energy;
-        
+        error('Unstable')
     end
     
     T = toc;

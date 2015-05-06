@@ -419,7 +419,6 @@ classdef Tissue
                 c = c.sortbyID;
                 A(i,:) = [c.area];
             end
-            A = A*tisArray(1).parameters.um_per_px^2;
         end % getArea
         
         function C = getContractility(tisArray)

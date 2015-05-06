@@ -27,10 +27,10 @@ params.jitterSize = l*str2double(get_field('jitter_std'));
 
 % Set contractility gradient
 % Activate "ventral fate"
-x0 = str2double(get_field('x0'));
-xf = str2double(get_field('xf'));
-y0 = str2double(get_field('y0'));
-yf = str2double(get_field('yf'));
+eval(['x0 = ' get_field('x0')]);
+eval(['xf = ' get_field('xf')]);
+eval(['y0 = ' get_field('y0')]);
+eval(['yf = ' get_field('yf')]);
 contract.ventral.box = [ x0, y0, xf, yf];
 contract.ventral.alt_tension = str2double(get_field('alt_tension'));
 

@@ -6,7 +6,7 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 15;
+HEX_NUM_X = 8;
 HEX_NUM_Y = 8;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
@@ -30,11 +30,11 @@ CONNECTIVITY = 'purse string';
 %  CONNECTIVITY = 'network';
 % CONNECTIVITY = 'purse string and network';
 
-STEPS = 1000; % number of constriction steps
+STEPS = 100; % number of constriction steps
 TIME_STEP = 0.01;
 VISCOSITY_COEFF = 1e2;
 
-JITTERING_STD = l/20;
+JITTERING_STD = 1/20;
 
 %% Initialize model
 
@@ -99,8 +99,8 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @gaussian_gradient_variable;
-CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*1e4;
-CONT_STD = CONTRACTILITY_MAGNITUDE * 0.25;
+CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*1e1;
+CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 20; % pxs
 ALT_TENSION = 1;
 
@@ -112,6 +112,7 @@ figure(1),tis_init.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
 midline_x = tis_init.Xs/2; midline_y = tis_init.Ys/2;
+% contract_params = [CONTRACTILE_WIDTH, CONT_STD];
 contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
     CONTRACTILE_WIDTH CONT_STD];
 tis_init = tis_init.setContractilityModel(MODEL_FUN,contract_params);
@@ -137,7 +138,7 @@ tis = tis_init; tissueArray(1) = tis;
 E = zeros(1,STEPS); Econt = zeros(1,STEPS);
 contractility = zeros(num_cells,STEPS);
 
-for i = 1:STEPS
+for i = 1:100
     
     tic
     
@@ -153,18 +154,21 @@ for i = 1:STEPS
     
     if i>1 && abs(E(i) - E(i-1)) < eps, break; end
     while i>1 && E(i) - E(i-1) > 0
-%         % If unstable, try again with larger viscosity (by 1/5) each time
+        % If unstable, try again with smaller stepSize (by 1/5) each time
 %         display(['New step size: ' num2str(tis.parameters.stepSize / 5)])
-%         tis = tissueArray(i);
-%         tis.parameters.stepSize = tis.parameters.stepSize / 5;
-%         displacements = tis.get_force ...
+%         tis_old = tissueArray(i);
+%         tis_old.parameters.stepSize = tis.parameters.stepSize / 5;
+%         verts = tis_old.vert_coords;
+%         displacements = tis_old.get_force ...
 %             / tis.parameters.viscosity * tis.parameters.lengthScale ...
 %             * tis.parameters.stepSize / um_per_px;
-%         verts = verts_old + displacements;
+%         verts = verts + displacements;
 %         
-%         tis = tis.evolve( verts );
+%         tis = tis_old.evolve( verts );
+%         tis.parameters.stepSize = tis.parameters.stepSize/5;
 %         tissueArray( i + 1 ) = tis;
 %         E(i) = tis.get_energy;
+%         keyboard
         error('Unstable!')
     end
     
