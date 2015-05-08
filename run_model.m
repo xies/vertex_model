@@ -1,4 +1,4 @@
-function tisArr = run_model(init,params,contraction)
+function run_model(init,params,contraction,OUT_DIR)
 % Wrapper for running vertex model
 
 % Construct rough initial cells
@@ -12,7 +12,6 @@ STEPS = init.steps;
 % Initialize Tissue
 tic
 tis = Tissue(regions,vertex_list,centroid_list,params.connectivity);
-tisArr(1:STEPS+1) = Tissue;
 T = toc;
 display(['Tissue initialized in ' num2str(T) ' sec'])
 
@@ -82,19 +81,20 @@ T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 
 % Euler integration
-tisArr(1) = tis;
 E = zeros(1,STEPS);
 for i = 1:STEPS
     
+    % Copy previous tissue config
+    tis_prev = tis;
+    
     tic
-    verts = tis.vert_coords;
-    displacements = tis.get_force ...
-        / tis.parameters.viscosity * tis.parameters.lengthScale ...
-        * tis.parameters.stepSize;
+    verts = tis_prev.vert_coords;
+    displacements = tis_prev.get_force ...
+        / tis_prev.parameters.viscosity * tis_prev.parameters.lengthScale ...
+        * tis_prev.parameters.stepSize;
     verts = verts + displacements;
     
-    tis = tis.evolve( verts );
-    tisArr( i + 1 ) = tis;
+    tis = tis_prev.evolve( verts );
     E(i) = tis.get_energy;
     
     if i>1 && abs(E(i) - E(i-1)) < init.tolerance
@@ -102,14 +102,16 @@ for i = 1:STEPS
         break
     end
     if i>1 && E(i) - E(i-1) > 0
-        error('Unstable')
+        % @todo: implement an up-sampling?
+        error('Unstable');
     end
     
     T = toc;
+    if ~nargin > 3
+        save([OUT_DIR '_step_' num2str(i) '.mat','tis');
+    end
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
     
 end
-
-tisArr(i+1:end) = [];
 
 end
