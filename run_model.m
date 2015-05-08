@@ -107,10 +107,12 @@ for i = 1:STEPS
     end
     
     T = toc;
-    if ~nargin > 3
-        save([OUT_DIR '_step_' num2str(i) '.mat'],'tis');
-    end
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
+    if ~nargin > 3
+        SAVE_DIR = [OUT_DIR '_step_' num2str(i) '.mat'];
+        save(SAVE_DIR,'tis');
+        display(['Saved to: ' SAVE_DIR]);
+    end
     
 end
 
