@@ -43,8 +43,6 @@ eval(['contract.contractility.params = ' ...
 
 run_model(initialization,params,contract,OUT_DIR);
 
-pack, who
-
 save(OUT_DIR)
 
 end
