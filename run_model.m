@@ -92,20 +92,32 @@ for i = 1:STEPS
     displacements = tis_prev.get_force ...
         / tis_prev.parameters.viscosity * tis_prev.parameters.lengthScale ...
         * tis_prev.parameters.stepSize;
-    verts = verts + displacements;
     
-    tis = tis_prev.evolve( verts );
+    tis = tis_prev.evolve( verts + displacements);
     E(i) = tis.get_energy;
     
-    if i>1 && abs(E(i) - E(i-1)) < init.tolerance
+    % Check if change in energy at this step is good enough
+    if i > 1 && abs(E(i) - E(i-1)) < init.tolerance * E(i)
         display(['Change in energy is ' num2str(E(i) - E(i-1))])
         break
     end
+    
+    % If change in energy is positive, then we're in an unstable situation
+    % -> try to up-sample.
+    stepSize = tis.parameters.stepSize;
     if i>1 && E(i) - E(i-1) > 0
-        % @todo: implement an up-sampling?
-        error('Unstable');
+        % Implement up-sampling by using smaller integration steps
+        stepSize = stepSize / 2;
+        displacements = tis_prev.get_force ...
+            / tis_prev.parameters.viscosity * tis_prev.parameters.lengthScale ...
+            * stepSize;
+        tis = tis_prev.evolve( verts + displacements );
+        tis.parameters.stepSize = stepSize;
+        E(i) = tis.get_energy;
+%         error('Unstable');
     end
     
+    % Save current step in a .mat file
     T = toc;
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
     if nargin > 3
