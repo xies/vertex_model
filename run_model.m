@@ -108,6 +108,7 @@ for i = 1:STEPS
     if i>1 && E(i) - E(i-1) > 0
         % Implement up-sampling by using smaller integration steps
         stepSize = stepSize / 2;
+        display(['Trying smaller step size = ' num2str(stepSize)]);
         displacements = tis_prev.get_force ...
             / tis_prev.parameters.viscosity * tis_prev.parameters.lengthScale ...
             * stepSize;
