@@ -86,6 +86,7 @@ classdef Tissue
         interVertDist % dist matrix
         parameters % simulation parameters
         contractile_params % contraction model + params
+        energy % energy
         
         Xs % tissue pixel size
         Ys
@@ -550,6 +551,8 @@ classdef Tissue
 	                tis = tis.t1Transition( tis.getVertices(vID2transit) );
 				end
             end
+            
+            tis.energy = tis.get_energy;
             
             % Consistency check
 %             if ~tis.isValid, keyboard; end

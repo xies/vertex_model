@@ -7,8 +7,6 @@ initial_cells = init.initialize( init.model_params{:} );
     get_cents(initial_cells);
 vertex_list = get_vertices(initial_cells);
 
-STEPS = init.steps;
-
 % Initialize Tissue
 tic
 tis = Tissue(regions,vertex_list,centroid_list,params.connectivity);
@@ -80,53 +78,6 @@ tis = tis.jitterVertices(tis.parameters.jitterSize);
 T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 
-% Euler integration
-E = zeros(1,STEPS);
-for i = 1:STEPS
-    
-    % Copy previous tissue config
-    tis_prev = tis;
-    
-    tic
-    verts = tis_prev.vert_coords;
-    displacements = tis_prev.get_force ...
-        / tis_prev.parameters.viscosity * tis_prev.parameters.lengthScale ...
-        * tis_prev.parameters.stepSize;
-    
-    tis = tis_prev.evolve( verts + displacements);
-    E(i) = tis.get_energy;
-    
-    % Check if change in energy at this step is good enough
-    if i > 1 && abs(E(i) - E(i-1)) < init.tolerance * E(i)
-        display(['Change in energy is ' num2str(E(i) - E(i-1))])
-        break
-    end
-    
-    % If change in energy is positive, then we're in an unstable situation
-    % -> try to up-sample.
-    stepSize = tis.parameters.stepSize;
-    if i>1 && E(i) - E(i-1) > 0
-        % Implement up-sampling by using smaller integration steps
-        stepSize = stepSize / 2;
-        display(['Trying smaller step size = ' num2str(stepSize)]);
-        displacements = tis_prev.get_force ...
-            / tis_prev.parameters.viscosity * tis_prev.parameters.lengthScale ...
-            * stepSize;
-        tis = tis_prev.evolve( verts + displacements );
-        tis.parameters.stepSize = stepSize;
-        E(i) = tis.get_energy;
-%         error('Unstable');
-    end
-    
-    % Save current step in a .mat file
-    T = toc;
-    display([num2str(i) '-th time step (' num2str(T) ' sec)'])
-    if nargin > 3
-        SAVE_DIR = [OUT_DIR '_step_' num2str(i) '.mat'];
-        save(SAVE_DIR,'tis');
-        display(['Saved to: ' SAVE_DIR]);
-    end
-    
-end
+euler_integrate(tis,init,OUT_DIR);
 
 end
