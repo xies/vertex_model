@@ -56,9 +56,9 @@ for i = 1:STEPS
     E = tis.get_energy;
     
     % Check if change in energy at this step is good enough
-    if i > 1 && (abs(E - E_prev) < init.rel_tol * E(i) ...
+    if i > 1 && (abs(E - E_prev) < init.rel_tol * E ...
             || abs(E - E_prev) < init.abs_tol )
-        display(['Change in energy is ' num2str(E(i) - E(i-1))])
+        display(['Change in energy is ' num2str(E - E_prev)])
         break
     end
     
