@@ -78,6 +78,6 @@ tis = tis.jitterVertices(tis.parameters.jitterSize);
 T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 
-euler_integrate(tis,init,OUT_DIR);
+init.integration_method(tis,init,OUT_DIR);
 
 end

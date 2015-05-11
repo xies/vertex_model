@@ -1,9 +1,9 @@
-function euler_integrate(tis,init,OUT_DIR)
-% Performs Euler integration on TISSUE model. Saves every step of the
-% solution to OUT_DIR. Stopping criterion is both maxIter and an energy
+function explicit_euler(tis,init,OUT_DIR)
+% Performs explicit Euler integration on TISSUE model. Saves every step of
+% the solution to OUT_DIR. Stopping criterion is both maxIter and an energy
 % tolerance (relative)
 % 
-% USAGE: euler_integrate(tis,init,OUT_DIR)
+% USAGE: explicit_euler(tis,init,OUT_DIR)
 
 STEPS = init.steps;
 
@@ -25,9 +25,9 @@ for i = 1:STEPS
     E = tis.energy;
     
     % Check if change in energy at this step is good enough
-    if i > 1 && (abs(E - E_prev) < init.rel_tolerance * E(i) ...
-            || abs(E - E_prev) < init.abs_tolerance )
-        display(['Change in energy is ' num2str(E(i) - E(i-1))])
+    if i > 1 && (abs(E - E_prev) < init.rel_tol * E ...
+            || abs(E - E_prev) < init.abs_tol )
+        display(['Change in energy is ' num2str(E - E_prev)])
         break
     end
     
@@ -50,7 +50,7 @@ for i = 1:STEPS
     % Save current step in a .mat file
     T = toc;
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
-    if nargin > 3
+    if nargin > 2
         SAVE_DIR = [OUT_DIR '_step_' num2str(i) '.mat'];
         save(SAVE_DIR,'tis');
         display(['Saved to: ' SAVE_DIR]);

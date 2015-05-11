@@ -7,7 +7,7 @@ function bogacki_shampine(tis,init,OUT_DIR)
 
 % Grab some initial parameters
 STEPS = init.steps;
-h = init.h0;
+h = tis.parameters.stepSize;
 abs_tol = init.abs_tol;
 rel_tol = init.rel_tol;
 
@@ -24,6 +24,8 @@ for i = 1:STEPS
         % ---- K1 -----
         verts = tis_prev.vert_coords;
         k1 = tis_prev.get_force / tis_prev.parameters.viscosity;
+    else
+        k1 = k4;
     end
     
     % ---- K2 -----
@@ -39,35 +41,34 @@ for i = 1:STEPS
         ( 2/9 * k1 + 1/3 * k2 + 4/9 * k3) * h;
     tis = tis_prev.evolve( verts + displacements );
     
-    % k1 for next step (used also for error estimation)
-    k1 = tis.get_force / tmpTis.parameters.viscosity;
+    % k4 = k1 for next step (used also for error estimation)
+    k4 = tis.get_force / tmpTis.parameters.viscosity;
     
     Z = verts + h * (7/24 * k1 + 1/4 * k2 + 1/3 * k3 + 1/8 * k4);
     
     % Estimate next step size with error control
-    scale = abs_tol + max( abs(tis.vert_coords),abs(Z) ) * rel_tol;
-    error = max( abs(tis.vert_coords - Z),eps) / scale;
+    scale = abs_tol + max( norm(tis.vert_coords),norm(Z) )* rel_tol;
+    error = max( norm(tis.vert_coords - Z),eps) / scale;
     h = h * error ^ (1/3);
+    % Record next time step
+    tis.parameters.stepSize = h;
     
     E = tis.get_energy;
     
     % Check if change in energy at this step is good enough
-    if i > 1 && (abs(E - E_prev) < init.rel_tolerance * E(i) ...
-            || abs(E - E_prev) < init.abs_tolerance )
+    if i > 1 && (abs(E - E_prev) < init.rel_tol * E(i) ...
+            || abs(E - E_prev) < init.abs_tol )
         display(['Change in energy is ' num2str(E(i) - E(i-1))])
         break
     end
     
     % If change in energy is positive, then we're in an unstable situation
-    % -> try to up-sample.
-    if i>1 && E - E_prev > 0
-        error('Unstable');
-    end
+    if i>1 && E - E_prev > 0, error('Unstable'); end
     
     % Save current step in a .mat file
     T = toc;
     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
-    if nargin > 3
+    if nargin > 2
         SAVE_DIR = [OUT_DIR '_step_' num2str(i) '.mat'];
         save(SAVE_DIR,'tis');
         display(['Saved to: ' SAVE_DIR]);

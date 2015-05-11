@@ -10,7 +10,8 @@ numY = str2double(get_field('num_cell_y'));
 hex_angle = get_field('hex_angle');
 initialization.model_params = {hex_angle,numX,numY};
 initialization.steps = str2double(get_field('Nsteps')); % number of constriction steps
-initialization.tolerance = str2double(get_field('tol'));
+initialization.abs_tol = str2double(get_field('abs_tol'));
+initialization.rel_tol = str2double(get_field('rel_tol'));
 l = 512 / max(numX,numY) / 2;
 initialization.cell_size = ...
     str2double(get_field('cell_size')); % number of constriction steps
@@ -25,17 +26,20 @@ params.timeStep = str2double(get_field('time_step'));
 params.dragCoeff = str2double(get_field('drag_coeff'));
 params.jitterSize = l*str2double(get_field('jitter_std'));
 
+% Grab the integration method
+eval(['initialization.integration_method = ' ...
+    get_field('integration_method') ';']);
+
 % Set contractility gradient
 % Activate "ventral fate"
-eval(['x0 = ' get_field('x0')]);
-eval(['xf = ' get_field('xf')]);
-eval(['y0 = ' get_field('y0')]);
-eval(['yf = ' get_field('yf')]);
+eval(['x0 = ' get_field('x0') ';']);
+eval(['xf = ' get_field('xf') ';']);
+eval(['y0 = ' get_field('y0') ';']);
+eval(['yf = ' get_field('yf') ';']);
 contract.ventral.box = [ x0, y0, xf, yf];
 contract.ventral.alt_tension = str2double(get_field('alt_tension'));
 
 % Set the value of contractility in each cell
-
 eval(['contract.contractility.model = ' ...
     get_field('contractModel') ';']);
 eval(['contract.contractility.params = ' ...
