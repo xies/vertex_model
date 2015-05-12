@@ -1021,13 +1021,16 @@ classdef Tissue
             
         end % step
         
-        function tisArr = solve_model(tis,ode_method,tspan,OUT_DIR,ode_opts)
+        function varargout = solve_model(tis,ode_method,tspan,OUT_DIR,ode_opts)
             %SOLVE_MODEL
             % Uses the given ODE_METHOD to solve the model with curent
             % Tissue as initial condition. And then assemble solver outputs
             % using the assembler.
             %
-            % Usage: tisArr = tis_init.solve_model( ...
+            % Usage:
+            %   tis_init.solve_model( ...
+            %           ode_method,tspan,OUT_DIR,ode_opts);
+            %   tisArr = tis_init.solve_model( ...
             %           ode_method,tspan,OUT_DIR,ode_opts);
             %
             % INPUT: ode_method - e.g. ODE23, ODE45
@@ -1035,6 +1038,8 @@ classdef Tissue
             %        clean)
             %        tspan - time of solution
             %        ode_opts (optional) - options for the ODE solver
+            %
+            % OUTPUT: optional: assembled tissue array
             % 
             % See also: Tissue/evolve, Tissue/step, assemble_model
             
@@ -1046,8 +1051,10 @@ classdef Tissue
             end
             
             verts = tis.vert_coords;
-            ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts);
-            tisArr = assemble_model(OUT_DIR);
+            ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts,ode_opts);
+            if nargout > 0
+                varargout{1} = assemble_model(OUT_DIR);
+            end
             
         end % solve_model
         

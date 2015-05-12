@@ -78,6 +78,9 @@ tis = tis.jitterVertices(tis.parameters.jitterSize);
 T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 
-init.integration_method(tis,init,OUT_DIR);
+% init.integration_method(tis,init,OUT_DIR);
+opt = odeset('OutputFcn',@odeprint); % Suppress plotting
+tis.solve_model( init.solver_method, ...
+    [init.t0 init.tf], OUT_DIR, opt); % Avoid assembling output
 
 end

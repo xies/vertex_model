@@ -9,7 +9,8 @@ numX = str2double(get_field('num_cell_x'));
 numY = str2double(get_field('num_cell_y'));
 hex_angle = get_field('hex_angle');
 initialization.model_params = {hex_angle,numX,numY};
-initialization.steps = str2double(get_field('Nsteps')); % number of constriction steps
+initialization.t0 = str2double(get_field('t0')); % time span
+initialization.tf = str2double(get_field('tf'));
 initialization.abs_tol = str2double(get_field('abs_tol'));
 initialization.rel_tol = str2double(get_field('rel_tol'));
 l = 512 / max(numX,numY) / 2;
@@ -27,8 +28,8 @@ params.dragCoeff = str2double(get_field('drag_coeff'));
 params.jitterSize = l*str2double(get_field('jitter_std'));
 
 % Grab the integration method
-eval(['initialization.integration_method = ' ...
-    get_field('integration_method') ';']);
+eval(['initialization.solver_method = ' ...
+    get_field('solver_method') ';']);
 
 % Set contractility gradient
 % Activate "ventral fate"
