@@ -1,4 +1,4 @@
-function explicit_euler(tis,init,OUT_DIR)
+function tisArr = explicit_euler(tis,init,OUT_DIR)
 % Performs explicit Euler integration on TISSUE model. Saves every step of
 % the solution to OUT_DIR. Stopping criterion is both maxIter and an energy
 % tolerance (relative)
@@ -22,7 +22,7 @@ for i = 1:STEPS
         * tis_prev.parameters.stepSize;
     
     tis = tis_prev.evolve( verts + displacements);
-    E = tis.energy;
+    E = tis.energy
     
     % Check if change in energy at this step is good enough
     if i > 1 && (abs(E - E_prev) < init.rel_tol * E ...
@@ -34,7 +34,7 @@ for i = 1:STEPS
     % If change in energy is positive, then we're in an unstable situation
     % -> try to up-sample.
     stepSize = tis.parameters.stepSize;
-    while i>1 && E - E_prev > 0
+    while i > 1 && E - E_prev > 0
         % Implement up-sampling by using smaller integration steps
         stepSize = stepSize / 2;
         display(['Trying smaller step size = ' num2str(stepSize)]);
@@ -55,5 +55,7 @@ for i = 1:STEPS
         save(SAVE_DIR,'tis');
         display(['Saved to: ' SAVE_DIR]);
     end
+    
+    tisArr(i) = tis;
     
 end

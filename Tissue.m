@@ -258,11 +258,11 @@ classdef Tissue
 
         end % get_energy
         
-        function V = get_force(tis)
+        function F = get_force(tis)
             % GET_FORCE
             %
-            % Returns the forces as given by -grad(E) of current tissue
-            % configuration.
+            % Returns the forces as given by -grad(E) / drag_coeff of
+            % current tissue configuration.
             %
             % USAGE: V = tis.get_velocities;
             %
@@ -275,7 +275,7 @@ classdef Tissue
             %   - line tension:
             %       Fl = -sum_i( sum_j(sij*grad_i(Dij)) )
             %
-            % The graduent terms are implemented as Nagai (2000).
+            % The gradient terms are implemented as Nagai (2000).
             
             % Grab data
             vcoords = tis.vert_coords;
@@ -286,7 +286,7 @@ classdef Tissue
             
             % Initialize
             num_verts = size(vcoords,1);
-            V = zeros( size(vcoords) );
+            F = zeros( size(vcoords) );
             
             vIDList = tis.vertices.keys;
             vIDList = [vIDList{:}];
@@ -385,7 +385,7 @@ classdef Tissue
                         
                     end
                     
-                    V(i,:) = line_tension_term + area_elastic_term + ...
+                    F(i,:) = line_tension_term + area_elastic_term + ...
                         perim_elastic_term + active_contraction_term;
                     
 %                     tis.draw('showVectors',{V(i,:),i},'showActive');
@@ -396,13 +396,12 @@ classdef Tissue
 %                 if any(any(isnan( V ))), keyboard; end
                 
             end
-            
 %             % Check that fixed vertices have not moved
 %             if any( V(tis.parameters.fixed_verts,:) > 0 )
 %                 keyboard;
 %             end
             
-        end % get_velocities
+        end % get_forces
         
         % ------ Measurements (area, contractility, etc) ---------
         
@@ -480,7 +479,7 @@ classdef Tissue
         
         % ------ Simulation bookkeeping methods ---------
         
-        function tis = evolve(tis_old, new_vcoords, varargin)
+        function tis = evolve(tis_old, new_vcoords, new_time, varargin)
             % EVOLVE
             % Updates and returns a new copy of the old tissue
             % configuration by moving all the vertex positions
@@ -553,15 +552,8 @@ classdef Tissue
             end
             
             tis.energy = tis.get_energy;
-            
-            % Consistency check
-%             if ~tis.isValid, keyboard; end
-            
-            % Advance time stamp by one
-            if nargin < 3,
-                tis.t = tis.t + ...
-                    tis.parameters.stepSize * tis.parameters.dt_per_frame;
-            end
+            % Add time stamp
+            tis.t = new_time;
             
         end % evolve
         

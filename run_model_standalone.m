@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 8;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 4;
+HEX_NUM_Y = 4;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -30,11 +30,12 @@ CONNECTIVITY = 'purse string';
 %  CONNECTIVITY = 'network';
 % CONNECTIVITY = 'purse string and network';
 
-STEPS = 100; % number of constriction steps
-TIME_STEP = 0.01;
-VISCOSITY_COEFF = 1e2;
+STEPS = 1000; % number of constriction steps
+abs_tol = 1e-2; rel_tol = 1e-9;
+TIME_STEP = 1e-8;
+VISCOSITY_COEFF = 1e0;
 
-JITTERING_STD = 1/20;
+JITTERING_STD = 1/10;
 
 %% Initialize model
 
@@ -99,8 +100,8 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @radial_gradient_variable;
-CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*0.1;
-CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
+CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*1e4;
+CONT_STD = CONTRACTILITY_MAGNITUDE * 0;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;
 
@@ -152,7 +153,8 @@ for i = 1:100
     tissueArray( i + 1 ) = tis;
     E(i) = tis.get_energy;
     
-    if i>1 && abs(E(i) - E(i-1)) < eps, break; end
+    if (abs(E - E_prev) < rel_tol * E ...
+            || abs(E - E_prev) < abs_tol), break; end
     while i>1 && E(i) - E(i-1) > 0
         % If unstable, try again with smaller stepSize (by 1/5) each time
 %         display(['New step size: ' num2str(tis.parameters.stepSize / 5)])
