@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 4;
-HEX_NUM_Y = 4;
+HEX_NUM_X = 8;
+HEX_NUM_Y = 8;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -100,8 +100,8 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @radial_gradient_variable;
-CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*1e4;
-CONT_STD = CONTRACTILITY_MAGNITUDE * 0;
+CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*10;
+CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;
 
@@ -132,6 +132,13 @@ num_cells = tis_init.cells.length;
 T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 tis_init.draw('showContractile'); title('Initial condition')
+
+%% Runge-Kutta 2/3
+
+opt = odeset('OutputFcn',@odeprint);
+OUT_DIR = '~/Desktop/tmp';
+
+tisArr = tis_init.solve_model( @ode23, [0 10], OUT_DIR, ode );
 
 %% Euler scheme of model integration
 

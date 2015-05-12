@@ -480,7 +480,7 @@ classdef Tissue
         % ------ Simulation bookkeeping methods ---------
         
         function tis = evolve(tis_old, new_vcoords, new_time, varargin)
-            % EVOLVE
+            %EVOLVE
             % Updates and returns a new copy of the old tissue
             % configuration by moving all the vertex positions
             %   NOTA BENE: the old .cells container is COPIED and not
@@ -566,7 +566,7 @@ classdef Tissue
         end
         
         function tis = setParameters(tis,varargin)
-            % Sets the simluation/evolution parameters
+            %setParameters - Sets the simluation/evolution parameters.
             %
             % USAGE: tissue = 
             %           tis.setParameters('parameter',value);
@@ -728,7 +728,7 @@ classdef Tissue
         end % setParameters
         
         function tis = activateCell( tis, cellIDs, varargin)
-            % activateCell
+            %activateCell
             % Set specified cells (IDs) to "active = 1". Used to keep track
             % of who's "ventral" in the model.
             % Usage: tis = tis.activateCell(cellIDs)
@@ -799,6 +799,7 @@ classdef Tissue
         end % deactivateBorder
         
         function tis = setContractility(tis,C,cIDs)
+            %setContractility
             % Directly sets the active contractility coefficient
             % Requires all cells to have its own specified contractility
             % 
@@ -861,6 +862,7 @@ classdef Tissue
         end
         
         function tis = jitterVertices(tis, STD)
+            %JITTER_VERTICES
             % Add a set amount of Gaussian jitter to vertex position.
             %
             % USAGE: tis = tis.jitterVertices( STD )
@@ -877,6 +879,7 @@ classdef Tissue
         % ------ Verted-vertex connectivity ------
         
         function tis = connect_interfaces(tis, opt, cells)
+            %CONNECT_INTERFACES
             % Sets the vertex-vertex connectivity matrix according to the
             % specified model configurations, and then makes the
             % appropriate Interface objets
@@ -976,7 +979,77 @@ classdef Tissue
             
             tis.connectivity = conn;
             
-        end % connectVertices
+        end % connect_interfaces
+        
+        function tisArr = sort(tisArr)
+            %SORT
+            % Sort an array of Tissue objects by time stamp. Non-unique
+            % time stamps will throw an error.
+            % 
+            % USAGE: tisArr = tisArr.sort;
+            if numel(tisArr) == 1, return; end
+            T = [tisArr.t];
+            if numel(unique(T)) ~= numel(T)
+                error('Non unique time stamp');
+            end
+            [~,I] = sort(T,'ascend');
+            tisArr = tisArr(I);
+        end % sort
+        
+        function dy = step(tis,t,y,OUT_DIR)
+            %STEP
+            % Wrapper for evolve function for use with native ODE solver
+            % like ODE23 or ODE45. Call using an anonymous function to pass
+            % the tissue and the directory settings. Will save each
+            % iteration as a .mat file to a given directory.
+            % 
+            % USAGE: dy = tis.step(t,y,OUT_DIR)
+            % 
+            % INPUT: tis - Tissue
+            %        t - current time
+            %        y - current vertices
+            %        OUT_DIR - output directory
+            %
+            % SEE ALSO: ODE23, ASSEMBLE_MODEL, RUN_MODEL
+            
+            y = reshape(y(:),[numel(y)/2 2]);
+            tis = tis.evolve(y,t);
+            dy = tis.get_force / tis.parameters.viscosity;
+            dy = dy(:);
+            
+            save([OUT_DIR '/model_t_' num2str(t) '.mat'],'tis');
+            
+        end % step
+        
+        function tisArr = solve_model(tis,ode_method,tspan,OUT_DIR,ode_opts)
+            %SOLVE_MODEL
+            % Uses the given ODE_METHOD to solve the model with curent
+            % Tissue as initial condition. And then assemble solver outputs
+            % using the assembler.
+            %
+            % Usage: tisArr = tis_init.solve_model( ...
+            %           ode_method,tspan,OUT_DIR,ode_opts);
+            %
+            % INPUT: ode_method - e.g. ODE23, ODE45
+            %        OUT_DIR - output directory for model (needs to be
+            %        clean)
+            %        tspan - time of solution
+            %        ode_opts (optional) - options for the ODE solver
+            % 
+            % See also: Tissue/evolve, Tissue/step, assemble_model
+            
+            % Need to make sure everything is gone in OUT_DIR that might
+            % conflict.
+            s = what(OUT_DIR);
+            if ~isempty(s.mat)
+                error(['Please clear the contents of ' OUT_DIR]);
+            end
+            
+            verts = tis.vert_coords;
+            ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts);
+            tisArr = assemble_model(OUT_DIR);
+            
+        end % solve_model
         
         % ------ Cell-Vertex connectivity -----
         
