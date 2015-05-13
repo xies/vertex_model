@@ -1053,7 +1053,13 @@ classdef Tissue
             end
             
             verts = tis.vert_coords;
-            ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts,ode_opts);
+            switch nargin
+                case 4
+                    ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts);
+                case 5
+                    ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts,ode_opts);
+                otherwise
+            end
             if nargout > 0
                 varargout{1} = assemble_model(OUT_DIR);
             end
