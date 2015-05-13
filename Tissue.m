@@ -1542,8 +1542,6 @@ classdef Tissue
 			tis.t1List = cat(2,tis.t1List,sort([vt.ID])');
 		    tis.t1CoolDown = [tis.t1CoolDown 3];
             
-            keyboard;
-            
         end % t1Transition
         
         function tis = make_vertices(tis, regions)
