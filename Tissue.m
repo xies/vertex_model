@@ -92,7 +92,7 @@ classdef Tissue
         Ys
         merge_threshold_in_px
         t % timestamp
-		t1CoolDown % List of cool down times
+		t1Time % List of T1 transition times
 		t1List % list of T1 transition vertices
         
     end
@@ -128,7 +128,7 @@ classdef Tissue
                     tis.merge_threshold_in_px = tis_old.merge_threshold_in_px;
                     tis.t = tis_old.t;
                     tis.t1List = tis_old.t1List;
-                    tis.t1CoolDown = tis_old.t1CoolDown;
+                    tis.t1Time = tis_old.t1Time;
                     tis.vert_coords = tis_old.vert_coords;
                     tis.connectivity = tis_old.connectivity;
                     tis.interVertDist = tis_old.interVertDist;
@@ -178,7 +178,7 @@ classdef Tissue
                     tis = tis.connect_interfaces(conn_opt);
                     tis.interVertDist = squareform( pdist(tis.vert_coords) );
                     tis.t1List = [NaN NaN]';
-                    tis.t1CoolDown = NaN;
+                    tis.t1Time = NaN;
                     
                 end
                 
@@ -502,6 +502,7 @@ classdef Tissue
             tis.vert_coords = new_vcoords;
             vIDList = tis.vertices.keys; vIDList = [vIDList{:}];
             
+            % Individually move vertices using Vertex.move
             for i = 1:numel(vIDList)
                 % Move vertices in CellModels
                 v = tis.vertices(vIDList(i));
@@ -527,12 +528,16 @@ classdef Tissue
             D = squareform(pdist(tis.vert_coords));
             tis.interVertDist = D;
             
+            % Get new time stamp
+            tis.t = new_time;
+            
 			% Advance T1 transition timestamp, delete any entries that
 			% are no longer cooling down
 			if ~isempty(tis.t1List)
-				tis.t1CoolDown = tis.t1CoolDown - 1;
-				I = tis.t1CoolDown <= 0;
-                tis.t1CoolDown(I) = [];
+                I = new_time - tis.t1Time < 0.3;
+% 				tis.t1CoolDown = tis.t1CoolDown - 1;
+% 				I = tis.t1CoolDown <= 0;
+%                 tis.t1CoolDown(I) = [];
 				tis.t1List(:,I) = [];
 			end
 			
@@ -553,9 +558,8 @@ classdef Tissue
 				end
             end
             
+            % Record energy
             tis.energy = tis.get_energy;
-            % Add time stamp
-            tis.t = new_time;
             
         end % evolve
         
@@ -1540,7 +1544,7 @@ classdef Tissue
 			% Keep track of T1 transitions
 			% Set cool down time to 10 steps
 			tis.t1List = cat(2,tis.t1List,sort([vt.ID])');
-		    tis.t1CoolDown = [tis.t1CoolDown 3];
+		    tis.t1Time = [tis.t1Time tis.t];
             
         end % t1Transition
         
