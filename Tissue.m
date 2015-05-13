@@ -1534,7 +1534,7 @@ classdef Tissue
 			% Keep track of T1 transitions
 			% Set cool down time to 10 steps
 			tis.t1List = cat(2,tis.t1List,sort([vt.ID])');
-		    tis.t1CoolDown = [tis.t1CoolDown 10];
+		    tis.t1CoolDown = [tis.t1CoolDown 3];
             
             keyboard;
             
