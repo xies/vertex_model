@@ -536,16 +536,18 @@ classdef Tissue
 				tis.t1List(:,I) = [];
 			end
 			
-            % Perform T1 transitions
+            % Find vertex pairs that are too close
             D(~tis.connectivity) = NaN;
             D(tis.parameters.fixed_verts,:) = NaN;
             D = triu(D);
             D( D==0 ) = NaN;
             [I,J] = find( D < tis.parameters.t1Threshold );
             for i = 1:numel(I)
+                % Figure out which vertex-pairs are still in cooldown
 				vID2transit = sort( vIDList([I(i) J(i)]) );
 				match = bsxfun(@eq,vID2transit',[tis.t1List vID2transit']);
 				match = logical(sum(match,1));
+                % Perform T1 transitions
 				if all(match <2)
 	                tis = tis.t1Transition( tis.getVertices(vID2transit) );
 				end
@@ -648,7 +650,7 @@ classdef Tissue
             % --- bookkeeping ---
             addOptional(p,'jitterSize',0,@isscalar); %default = 0
             addOptional(p,'stepSize',0.001,@isscalar); %default = 0.001
-            addOptional(p,'t1Threshold',1,@isscalar) % default = 1
+            addOptional(p,'t1Threshold',2,@isscalar) % default = 1
             
             % --- Units ---
             addOptional(p,'um_per_px',1,@isscalar); %default = 1
@@ -1778,7 +1780,7 @@ classdef Tissue
             open(vid);
             for f = 1:num_frames
                 tissues(f).draw(opt);
-                title(['Step ' num2str(f)]);
+                title(['Time = ' num2str(tissues(f).t)]);
                 vid.writeVideo(getframe(gcf));
             end
             close(vid);
