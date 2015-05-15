@@ -1,5 +1,7 @@
-classdef Tissue
+classdef Tissue < handle
     % TISSUE
+    % Subclassed to handle.
+    % Copy using new_tissue = Tissue(old_tissue) to make shallow copies
     %
     % ---- Properties ----
     %   vert_coords - Nv x 2 array of vertex locations
@@ -87,13 +89,14 @@ classdef Tissue
         parameters % simulation parameters
         contractile_params % contraction model + params
         energy % energy
-        
-        Xs % tissue pixel size
-        Ys
-        merge_threshold_in_px
         t % timestamp
 		t1Time % List of T1 transition times
 		t1List % list of T1 transition vertices
+        
+        % -- Nonchancing settings --
+        Xs % tissue pixel size
+        Ys
+        merge_threshold_in_px
         
     end
     methods
@@ -107,7 +110,7 @@ classdef Tissue
             %       tis = Tissue(regions, vert_coords, centroids,'purse string')
             %                       assumes t = 0
             %  (to copy object)
-            %       tis = Tissue(old_tissue);
+            %        Tissue(old_tissue);
             %
             % March 2015, xies@mit.edu
             if nargin > 0
@@ -158,7 +161,7 @@ classdef Tissue
                     tis.vert_coords = vert_coords;
                     
                     % Instantiate valid vertices
-                    tis = tis.make_vertices(regions);
+                    tis.make_vertices(regions);
                     
                     % Initialize a Map object to hold CellModel
                     num_cells = max(unique(regions));
@@ -175,7 +178,7 @@ classdef Tissue
                     end
                     
                     % Make interfaces
-                    tis = tis.connect_interfaces(conn_opt);
+                    tis.connect_interfaces(conn_opt);
                     tis.interVertDist = squareform( pdist(tis.vert_coords) );
                     tis.t1List = [NaN NaN]';
                     tis.t1Time = NaN;
@@ -227,17 +230,16 @@ classdef Tissue
             % Right now implements area elasticity, parameter elasticity,
             % and active contractility.
             
-            
 %             p = tis.parameters; % get parameters
-% %             lambda = p.lengthScale;
+%             lambda = p.lengthScale;
             e = tis.interfaces.values; e = [e{:}];
             bondTerm = sum([e.energy]);
-%             
+            
             c = tis.cells.values(); c = [c{:}];
             cellTerm = sum([c.energy]);
             
             E = bondTerm + cellTerm;
-%             
+            
 %             dist = tis.interVertDist .* tis.connectivity;
 %             lineTensionTerm = nansum(nansum( triu(dist / lambda) ) * p.lineTension);
 %             
@@ -377,12 +379,6 @@ classdef Tissue
                             - 2 * this_cell.area * this_cell.contractility ...
                             * v / length_scale^2;
                         
-                        % DEBUGGING
-%                         tis = tis.activateCell( this_cell.cellID );
-%                         tis.draw('showVectors',{v,i},'showActive');
-%                         tis = tis.deactivateCell( this_cell.cellID );
-%                         hold on, sortedVt(I).draw;
-                        
                     end
                     
                     F(i,:) = line_tension_term + area_elastic_term + ...
@@ -479,15 +475,15 @@ classdef Tissue
         
         % ------ Simulation bookkeeping methods ---------
         
-        function tis = evolve(tis_old, new_vcoords, new_time, varargin)
+        function evolve(tis, new_vcoords, new_time, varargin)
             %EVOLVE
             % Updates and returns a new copy of the old tissue
             % configuration by moving all the vertex positions
             %   NOTA BENE: the old .cells container is COPIED and not
             %              direclty modified, since it's a reference object
             %
-            % USAGE: new_tissue = old_tissue( new_vcoords );
-            %        new_tissue = old_tissue( new_vcoords ,'no_update');
+            % USAGE: tissue( new_vcoords );
+            %        tissue( new_vcoords ,'no_update');
             
             % RESHAPE new_coords if fed in from ODE solver
             if isvector(new_vcoords)
@@ -495,10 +491,10 @@ classdef Tissue
                 new_vcoords = reshape(new_vcoords,N/2,2);
             end
             
-            if size(new_vcoords,1) ~= tis_old.vertices.length
+            if size(new_vcoords,1) ~= tis.vertices.length
                 error('Size of new vertex list must match old vertices')
             end
-            tis = Tissue(tis_old);
+            
             tis.vert_coords = new_vcoords;
             vIDList = tis.vertices.keys; vIDList = [vIDList{:}];
             
@@ -530,14 +526,15 @@ classdef Tissue
             
             % Get new time stamp
             tis.t = new_time;
+            tis.parameters.blah = 'changed';
             
 			% Advance T1 transition timestamp, delete any entries that
 			% are no longer cooling down
 			if ~isempty(tis.t1List)
-                I = new_time - tis.t1Time < 0.3;
+                I = new_time - tis.t1Time < 10;
 % 				tis.t1CoolDown = tis.t1CoolDown - 1;
 % 				I = tis.t1CoolDown <= 0;
-%                 tis.t1CoolDown(I) = [];
+                tis.t1Time(I) = [];
 				tis.t1List(:,I) = [];
 			end
 			
@@ -554,7 +551,7 @@ classdef Tissue
 				match = logical(sum(match,1));
                 % Perform T1 transitions
 				if all(match <2)
-	                tis = tis.t1Transition( tis.getVertices(vID2transit) );
+	                tis.t1Transition( tis.getVertices(vID2transit) );
 				end
             end
             
@@ -563,7 +560,7 @@ classdef Tissue
             
         end % evolve
         
-        function tis = updateVertCoords(tis)
+        function updateVertCoords(tis)
             % If you move a vertex without moving vert_coords explicitly,
             % use this to make them consistent.
             v = tis.getVertices;
@@ -571,7 +568,7 @@ classdef Tissue
             tis.vert_coords = cat(2,vx',vy');
         end
         
-        function tis = setParameters(tis,varargin)
+        function setParameters(tis,varargin)
             %setParameters - Sets the simluation/evolution parameters.
             %
             % USAGE: tissue = 
@@ -688,15 +685,15 @@ classdef Tissue
             end
             
             % Set Intarface-related parameters
-            tis = tis.setLineTension;
+            tis.setLineTension;
             if tis.parameters.lineAnisotropy ~= 1
-                tis = tis.setLineAnisotropy;
+                tis.setLineAnisotropy;
             end
             
             % Set CellModel parameters
-            tis = tis.setAreaElasticity;
-            tis = tis.setPerimElasticity;
-            tis = tis.setTargetArea;
+            tis.setAreaElasticity;
+            tis.setPerimElasticity;
+            tis.setTargetArea;
             
             % Sanity check paramter regime
             display('---Parameter check---')
@@ -733,12 +730,12 @@ classdef Tissue
             
         end % setParameters
         
-        function tis = activateCell( tis, cellIDs, varargin)
+        function activateCell( tis, cellIDs, varargin)
             %activateCell
             % Set specified cells (IDs) to "active = 1". Used to keep track
             % of who's "ventral" in the model.
-            % Usage: tis = tis.activateCell(cellIDs)
-            %        tis = tis.activateCell(cellIDs, alt_ka)
+            % Usage: tis.activateCell(cellIDs)
+            %        tis.activateCell(cellIDs, alt_ka)
             % Optionally, set non-active cells' lineTension to a specified
             % value. (See Spahn 2014).
             
@@ -769,10 +766,10 @@ classdef Tissue
             
         end % activateCell
         
-        function tis = deactivateCell(tis, cellIDs)
+        function deactivateCell(tis, cellIDs)
             % Deactivates cell(s)
-            % USAGE: tis = tis.deactivateCell; (default = all cells)
-            %        tis = tis.deactivateCell(IDs);
+            % USAGE: tis.deactivateCell; (default = all cells)
+            %        tis.deactivateCell(IDs);
             if nargin < 2 % If no cells specified, deactivate all cells
                 cellIDs = tis.cells.keys;
                 cellIDs = [cellIDs{:}];
@@ -783,10 +780,10 @@ classdef Tissue
             end
         end % deactivateCell
         
-        function tis = deactivateBorder(tis,n)
+        function deactivateBorder(tis,n)
             % deactivateBorder:
             % Deactivates the border (up to n order) cells
-            % USAGE: tis = tis.deactivateBorder(n)
+            % USAGE: tis.deactivateBorder(n)
             %
             % @todo: implement orders n > 1
             
@@ -798,19 +795,19 @@ classdef Tissue
             cellIDList = tis.cells.keys; cellIDList = [cellIDList{:}];
             for ID = cellIDList
                 if tis.numCellNeighbors( tis.cells(ID) ) < 6
-                    tis = tis.deactivateCell( ID );
+                    tis.deactivateCell( ID );
                 end
             end
             
         end % deactivateBorder
         
-        function tis = setContractility(tis,C,cIDs)
+        function setContractility(tis,C,cIDs)
             %setContractility
             % Directly sets the active contractility coefficient
             % Requires all cells to have its own specified contractility
             % 
-            % USAGE: tis = tis.setContractility( C , cIDs );
-            %        tis = tis.setContractility( C , cIDs );
+            % USAGE: tis.setContractility( C , cIDs );
+            %        tis.setContractility( C , cIDs );
             % INPUT: tis - tissue
             %        C - vector of contractility values
             %        cIDs - by default sets all cells
@@ -832,12 +829,12 @@ classdef Tissue
             end
         end % setContractility
         
-        function tis = setContractilityModel(tis,modelfun,params,cIDs)
+        function setContractilityModel(tis,modelfun,params,cIDs)
             % setContractilityModel - sets the value of contractility
             % according to the given model.
             % 
-            % USAGE: tis = tis.setContractilityModel( modelfun, params,cIDs)
-            %        tis = tis.setContractilityModel( modelfun, params)
+            % USAGE: tis.setContractilityModel( modelfun, params,cIDs)
+            %        tis.setContractilityModel( modelfun, params)
             %                   - sets contractility in all ACTIVE cells
             %
             % INPUT: modelfun - a function handle, should return the
@@ -858,8 +855,8 @@ classdef Tissue
             % Evaluate modelfun and set the values
             ct = cat(1,cellsOI.centroid);
             C = modelfun(ct,params);
-            tis = tis.setContractility( C,[cellsOI.cellID] );
-            tis = tis.deactivateBorder;
+            tis.setContractility( C,[cellsOI.cellID] );
+            tis.deactivateBorder;
             
             % Record modelfun + param
             tis.contractile_params.model = modelfun;
@@ -867,46 +864,52 @@ classdef Tissue
             
         end
         
-        function tis = jitterVertices(tis, STD)
+        function jitterVertices(tis, STD)
             %JITTER_VERTICES
             % Add a set amount of Gaussian jitter to vertex position.
             %
-            % USAGE: tis = tis.jitterVertices( STD )
+            % USAGE: tis.jitterVertices( STD )
             
             verts = tis.vert_coords;
             I = ~tis.parameters.fixed_verts;
             jitter = STD*randn([ numel(I(I)), 2]);
             verts( I,: ) = verts( I,: ) + jitter;
             
-            tis = tis.evolve( verts , 'no_update' );
+            tis.evolve( verts , 'no_update' );
             
         end
         
         % ------ Verted-vertex connectivity ------
         
-        function tis = connect_interfaces(tis, opt, cells)
+        function connect_interfaces(tis, opt)
             %CONNECT_INTERFACES
             % Sets the vertex-vertex connectivity matrix according to the
             % specified model configurations, and then makes the
-            % appropriate Interface objets
+            % appropriate Interface objets.
+            %
+            % Alternatively, if 'update' is specified, will update tissue
+            % with correct connectivity map.
             % 
-            % USAGE: 
-            % tis = tis.connect_interfaces( opt )
-            % tis = tis.connect_interfaces( opt )
+            % USAGE:
+            %  tis.connect_interfaces( opt )
+            %  tis.connect_interfaces( opt )
             % 
             % INPUT: tis - the tissue to be connected
             %        opt - 'purse string' / 'apical' / 'both'
+            %              'update'
             % 
             % @todo: implement 'apical' and 'both'
             
             vIDsList = tis.vertices.keys; vIDsList = [vIDsList{:}];
             num_vertices = numel(vIDsList);
-            % Start with brand-new hashmap
-            tis.interfaces = containers.Map('KeyType','int32','ValueType','any');
             
             switch opt
                 % Connect the 'junctions' of cells only
                 case 'purse string'
+                    
+                    % Start with brand-new hashmap
+                    tis.interfaces = ...
+                        containers.Map('KeyType','int32','ValueType','any');
                     conn = zeros(num_vertices);
                     ID = 1;
                     for i = 1:num_vertices
@@ -974,10 +977,24 @@ classdef Tissue
                         end
                     end
                     
-                    % Clean up round (?)
-                    for i = 1:tis.interfaces.length
-                        
+                case 'update'
+                    % Update the connectivity matrix based on the current
+                    % set of Interfaces.
+                    
+                    edges = tis.getInterfaces;
+%                     v = tis.getVertices;
+                    vIDsList = tis.vertices.keys; vIDsList = [vIDsList{:}];
+                    
+                    conn = zeros(numel(vIDsList));
+                    for e = edges
+                        I = find(vIDsList == e.vIDs(1));
+                        J = find(vIDsList == e.vIDs(2));
+                        conn( I,J ) = 1; conn( J,I ) = 1;
                     end
+%                     pairs = cat(1,edges.vIDs);
+%                     conn = accumarray( pairs,1, ...
+%                         [max(vIDsList) max(vIDsList)]);
+%                     conn = conn + tril(conn.',-1);
                     
                 otherwise
                     error('Unrecognized vertex connection option.')
@@ -1007,68 +1024,27 @@ classdef Tissue
             % Wrapper for evolve function for use with native ODE solver
             % like ODE23 or ODE45. Call using an anonymous function to pass
             % the tissue and the directory settings. Will save each
-            % iteration as a .mat file to a given directory.
+            % iteration as a .mat file if given a directory.
             % 
             % USAGE: dy = tis.step(t,y,OUT_DIR)
             % 
             % INPUT: tis - Tissue
             %        t - current time
             %        y - current vertices
-            %        OUT_DIR - output directory
+            %        OUT_DIR (optional) - output directory
             %
             % SEE ALSO: ODE23, ASSEMBLE_MODEL, RUN_MODEL
-            
+                        
             y = reshape(y(:),[numel(y)/2 2]);
-            tis = tis.evolve(y,t);
+            tis.evolve(y,t);
             dy = tis.get_force / tis.parameters.viscosity;
             dy = dy(:);
             
-            save([OUT_DIR '/model_t_' num2str(t) '.mat'],'tis');
+            if nargin > 3
+                save([OUT_DIR '/model_t_' num2str(t) '.mat'],'tis');
+            end
             
         end % step
-        
-        function varargout = solve_model(tis,ode_method,tspan,OUT_DIR,ode_opts)
-            %SOLVE_MODEL
-            % Uses the given ODE_METHOD to solve the model with curent
-            % Tissue as initial condition. And then assemble solver outputs
-            % using the assembler.
-            %
-            % Usage:
-            %   tis_init.solve_model( ...
-            %           ode_method,tspan,OUT_DIR,ode_opts);
-            %   tisArr = tis_init.solve_model( ...
-            %           ode_method,tspan,OUT_DIR,ode_opts);
-            %
-            % INPUT: ode_method - e.g. ODE23, ODE45
-            %        OUT_DIR - output directory for model (needs to be
-            %        clean)
-            %        tspan - time of solution
-            %        ode_opts (optional) - options for the ODE solver
-            %
-            % OUTPUT: optional: assembled tissue array
-            % 
-            % See also: Tissue/evolve, Tissue/step, assemble_model
-            
-            % Need to make sure everything is gone in OUT_DIR that might
-            % conflict.
-            s = what(OUT_DIR);
-            if ~isempty(s.mat)
-                error(['Please clear the contents of ' OUT_DIR]);
-            end
-            
-            verts = tis.vert_coords;
-            switch nargin
-                case 4
-                    ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts);
-                case 5
-                    ode_method(@(t,y) tis.step(t,y,OUT_DIR),tspan,verts,ode_opts);
-                otherwise
-            end
-            if nargout > 0
-                varargout{1} = assemble_model(OUT_DIR);
-            end
-            
-        end % solve_model
         
         % ------ Cell-Vertex connectivity -----
         
@@ -1183,6 +1159,11 @@ classdef Tissue
             end
         end % connected
         
+        function flag = edgeConnected(~,va,vb)
+            % If two vertices are connected
+            flag = numel( intersect(va.bIDs,vb.bIDs) ) > 0;
+        end
+        
         function M = corona_measurement(tis,cellIDs,measurement)
             % Measure
             if nargin < 3,
@@ -1257,10 +1238,10 @@ classdef Tissue
             
         end % getCellsWithinRegion
         
-        function tis = setTargetArea(tis,cIDs,alt_area)
+        function setTargetArea(tis,cIDs,alt_area)
             % Passes parameters from Tissue into CellModels
             % 
-            % Usage: tis = setTargetArea(tis,cIDs,alt_area)
+            % Usage: setTargetArea(tis,cIDs,alt_area)
             %
             % INPUT:
             %   cIDs - by default does every cell
@@ -1285,10 +1266,10 @@ classdef Tissue
             end
         end
         
-        function tis = setAreaElasticity(tis,cIDs,alt_ka)
+        function setAreaElasticity(tis,cIDs,alt_ka)
             % Passes parameters from Tissue into CellModels
             % 
-            % Usage: tis = setAreaElasticity(tis,cIDs,alt_ka)
+            % Usage: setAreaElasticity(tis,cIDs,alt_ka)
             %
             % INPUT:
             %   cIDs - by default does every cell
@@ -1313,10 +1294,10 @@ classdef Tissue
             end
         end
         
-        function tis = setPerimElasticity(tis,cIDs,alt_kp)
+        function setPerimElasticity(tis,cIDs,alt_kp)
             % Passes parameters from Tissue into CellModels
             % 
-            % Usage: tis = setPerimElasticity(tis,cIDs,alt_kp)
+            % Usage: setPerimElasticity(tis,cIDs,alt_kp)
             %
             % INPUT:
             %   cIDs - by default does every cell
@@ -1370,12 +1351,12 @@ classdef Tissue
             if numel(e) > 1, keyboard; end
         end
         
-        function tis = setLineTension(tis,bIDList,L)
+        function setLineTension(tis,bIDList,L)
             % Set the line tension of each bond in the tissue.
             % Can specify each bond or have them be all the same
             %
-            % USAGE: tis = tis.setLineTension(bIDs,L)
-            %        tis = tis.setLineTension - uses tis.parameters
+            % USAGE: tis.setLineTension(bIDs,L)
+            %        tis.setLineTension - uses tis.parameters
             %
             % INPUT:
             %   tis.parameters.lineTension:
@@ -1403,14 +1384,14 @@ classdef Tissue
             
         end % setLineTension
         
-        function tis = setLineAnisotropy(tis,bIDList,a)
+        function setLineAnisotropy(tis,bIDList,a)
             % Set the line tension anisotropically according to
             % orientation.
             %
             % Anisotropy value is the same across specified cells
             %
-            % USAGE: tis = tis.setLineAnisotropy(bIDs,a)
-            %        tis = tis.setLineAnisotropy - use tis.parameters as
+            % USAGE: tis.setLineAnisotropy(bIDs,a)
+            %        tis.setLineAnisotropy - use tis.parameters as
             %           default value
             
             sigma = tis.parameters.forceScale;
@@ -1446,12 +1427,12 @@ classdef Tissue
         
         % ----- Vertex handling ------
         
-        function tis = t1Transition( tis, vt )
+        function t1Transition( tis, vt )
             % Make a T1 transition (a la Lecuit definition)
 
             display(['T1 transition between ' num2str(vt(1).ID), ...
                 ' and ' num2str(vt(2).ID) ])
-
+            
             % Swap cell ownership
             % figure out which cells contain each vertex
             cells1 = vt(1).cellIDs;
@@ -1517,9 +1498,11 @@ classdef Tissue
                     this_bond.vIDs = setdiff( this_bond.vIDs, vt(ind).ID );
                     this_bond.vIDs = union( this_bond.vIDs, vt(other_ind).ID );
                     tis.interfaces( bIDs(j) ) = this_bond.updateInterface(tis);
-                    % Add/delete bonds to VERTEX
+                    % Delete bondID from VERTEX and tis.CONNECTIVITY
                     vt(ind).bondIDs = setdiff( vt(ind).bondIDs, this_bond.ID );
+                    % Add bondID from VERTEX
                     vt(other_ind).bondIDs = unique( [vt(other_ind).bondIDs this_bond.ID] );
+                    
                 end
                 
                 % remove cellID from vertex Model
@@ -1538,9 +1521,10 @@ classdef Tissue
             %%%%%%%%
             
             % Update matrices
-            tis = tis.updateVertCoords;
+            tis.updateVertCoords;
+            tis.connect_interfaces('update');
             tis.interVertDist = squareform(pdist( tis.vert_coords ));
-
+            
 			% Keep track of T1 transitions
 			% Set cool down time to 10 steps
 			tis.t1List = cat(2,tis.t1List,sort([vt.ID])');
@@ -1548,7 +1532,7 @@ classdef Tissue
             
         end % t1Transition
         
-        function tis = make_vertices(tis, regions)
+        function make_vertices(tis, regions)
             % Checks if vertices are not beyond image border, touching at 
             % least one cell, and return which cells a vertex is touching
             % Use only from Constructor!
@@ -1777,9 +1761,9 @@ classdef Tissue
             %        I = movie(tisues,'showActive');
             
             num_frames = numel(tissues);
-            if nargin == 1, opt = 'none';
+            if nargin == 1, opt = {'none'};
             else
-                opt = varargin{1};
+                opt = varargin;
             end
             
             vid = VideoWriter('~/Desktop/model.avi');
@@ -1787,24 +1771,21 @@ classdef Tissue
             vid.FrameRate = 7;
             open(vid);
             for f = 1:num_frames
-                tissues(f).draw(opt);
+                tissues(f).draw(opt{:});
                 title(['Time = ' num2str(tissues(f).t)]);
                 vid.writeVideo(getframe(gcf));
             end
             close(vid);
             
-%             for f = 1:num_frames
-%                 F(
-%             end
-%             F = zeros(tissues(1).Xs, tissues(1).Ys, num_frames);
-            
-%             for f = 1:num_frames
-%                 F(:,:,f) = tissues(f).draw(opt);
-%             end
-            
         end
         
-    end % Methods
+    end % Public methods
     
-    
+%     methods(Access = protected)
+%         % Override copyElement method:
+%         function cpObj = copyElement(obj)
+%             % Make a shallow copy (dereferenced values)
+%             cpObj = copyElement@matlab.mixin.Copyable(obj);
+%         end 
+%     end
 end

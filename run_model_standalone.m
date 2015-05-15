@@ -41,16 +41,16 @@ JITTERING_STD = 1/10;
 
 % create hexagons and the CellGraph object
 tic
-tis_init = Tissue(regions,vertex_list,centroid_list,CONNECTIVITY);
+tis = Tissue(regions,vertex_list,centroid_list,CONNECTIVITY);
 
 clear tissueArray p;
 tissueArray(1:STEPS+1) = Tissue;
 T = toc;
 display(['Tissue initialized in ' num2str(T) ' sec'])
-verts = tis_init.vert_coords;
+verts = tis.vert_coords;
 
-A0 = mean([tis_init.getCells.area]);
-P0 = mean([tis_init.getCells.perimeter]);
+A0 = mean([tis.getCells.area]);
+P0 = mean([tis.getCells.perimeter]);
 l = P0/6; % lattice length_scale
 um_per_px = sqrt(40/A0); % pixel size
 
@@ -91,7 +91,7 @@ else
         };
 end
 
-tis_init = tis_init.setParameters(param_config{:}); % set parameters
+tis.setParameters(param_config{:}); % set parameters
 T = toc;
 display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
@@ -100,49 +100,47 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @radial_gradient_variable;
-CONTRACTILITY_MAGNITUDE = tis_init.parameters.areaElasticity*10;
+CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*10;
 CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;
 
 % Activate "ventral fate"
 box = [ 1/2-1/3 , 1/10 , 1/2+1/3 , 9/10 ];
-cIDs = tis_init.getCellsWithinRegion(box);
-tis_init = tis_init.activateCell(cIDs,ALT_TENSION);
-figure(1),tis_init.draw('showActive'); title('Ventral fated cells')
+cIDs = tis.getCellsWithinRegion(box);
+tis.activateCell(cIDs,ALT_TENSION);
+figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
-midline_x = tis_init.Xs/2; midline_y = tis_init.Ys/2;
+midline_x = tis.Xs/2; midline_y = tis.Ys/2;
 % contract_params = [CONTRACTILE_WIDTH, CONT_STD];
 contract_params = [CONTRACTILITY_MAGNITUDE midline_x, midline_y,...
     CONTRACTILE_WIDTH CONT_STD];
-tis_init = tis_init.setContractilityModel(MODEL_FUN,contract_params);
-C = tis_init.getContractility;
+tis.setContractilityModel(MODEL_FUN,contract_params);
+C = tis.getContractility;
 T = toc;
 display(['Contractility set in ' num2str(T) ' sec'])
-figure(2),tis_init.draw('showContractile'); title('Contractility')
+figure(2),tis.draw('showContractile'); title('Contractility')
 
 %% JITTER + Show initial conditions
 
 % Add some jitter
 tic
-tis_init = tis_init.jitterVertices(JITTERING_STD);
-num_cells = tis_init.cells.length;
+tis.jitterVertices(JITTERING_STD);
+num_cells = tis.cells.length;
 
 T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
-tis_init.draw('showContractile'); title('Initial condition')
+tis.draw('showContractile'); title('Initial condition')
 
 %% Runge-Kutta 2/3
 
 opt = odeset('OutputFcn',@odeprint);
 OUT_DIR = '~/Desktop/tmp';
 
-tisArr = tis_init.solve_model( @ode23, [0 10], OUT_DIR, ode );
-
 %% Euler scheme of model integration
 
-tis = tis_init; tissueArray(1) = tis;
+tissueArray(1) = tis;
 E = zeros(1,STEPS); Econt = zeros(1,STEPS);
 contractility = zeros(num_cells,STEPS);
 

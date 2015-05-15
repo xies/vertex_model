@@ -1,5 +1,33 @@
-function run_model(init,params,contraction,OUT_DIR)
-% Wrapper for running vertex model
+function varargout = run_model(init,params,contraction,OUT_DIR)
+%RUN_MODEL
+% Uses ODE23 (Runge-Kutta 2/3; Bockagi-Shampine) to solve a vertex model
+% given by INITI, with parameters PARAM, and contraction setting
+% CONTRACTION. Output is put into OUT_DIR.
+%
+% Usage:
+%   run_model(initialization, parameters, contraction ...
+%       OUT_DOR)
+%
+% INPUT: init - initialization structure
+%           .initialize - lattice creator (e.g. create_hexagons)
+%           .numX / Y - number of cells in each dimension
+%           .hex_angle - angle of hexagon, (e.g. 'diagonal')
+%           .t0 / tf - time span of solution
+%           .cell_size - initial size of cells in microns^2
+%           .abs_tol / rel_tol - tolerances for ODE23
+%        parameters - structure of parameters to pass onto
+%           Tissue.setParameteters
+%        contraction
+%           .ventral.box - ventral cell region
+%           .ventral.alt_tension - alternative line tension for nonventral cells
+%           .contract.model /parameter - function handle for how to set
+%               contraction value (and parameters to pass to it)
+%       OUT_DIR = output directory
+%
+% OUTPUT: optional: assembled tissue array
+%
+% See also: RUN_MODEL_FROM_CONFIG, Tissue/evolve, Tissue/step,
+% assemble_model, ODE23
 
 % Construct rough initial cells
 initial_cells = init.initialize( init.model_params{:} );
@@ -56,7 +84,7 @@ else
         };
 end
 
-tis = tis.setParameters(param_config{:});
+tis.setParameters(param_config{:});
 T = toc;
 display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
@@ -64,23 +92,41 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 % Activate "ventral fate"
 cIDs = tis.getCellsWithinRegion(contraction.ventral.box);
-tis = tis.activateCell(cIDs, ...
+tis.activateCell(cIDs, ...
     contraction.ventral.alt_tension*tis.parameters.areaElasticity);
 % Set the value of contractility in each cell
-tis = tis.setContractilityModel( ...
+tis.setContractilityModel( ...
     contraction.contractility.model,contraction.contractility.params);
 T = toc;
 display(['Contractility set in ' num2str(T) ' sec'])
 
 % Add some jitter
 tic
-tis = tis.jitterVertices(tis.parameters.jitterSize);
+tis.jitterVertices(tis.parameters.jitterSize);
 T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 
 % init.integration_method(tis,init,OUT_DIR);
 opt = odeset('OutputFcn',@odeprint); % Suppress plotting
-tis.solve_model( init.solver_method, ...
-    [init.t0 init.tf], OUT_DIR, opt); % Avoid assembling output
+
+% Need to make sure everything is gone in OUT_DIR that might
+% conflict.
+s = what(OUT_DIR);
+if ~isempty(s.mat)
+    error(['Please clear the contents of ' OUT_DIR]);
+end
+
+verts = tis.vert_coords;
+% Save initial tissue configuration for later assembling
+save([OUT_DIR '/model_t_0.mat'],'tis');
+
+[T,Y] = ode23(@(t,y) tis.step(t,y),[init.t0 init.tf],verts,opt);
+
+csvwrite([OUT_DIR '/times.csv'],T);
+csvwrite([OUT_DIR '/vertices.csv'],Y);
+
+if nargout > 0
+    varargout{1} = assemble_model(OUT_DIR);
+end
 
 end

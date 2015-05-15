@@ -6,17 +6,18 @@ function tisArr = assemble_model(DIR)
 % Usage: tissueArray = assemble_model(DIR)
 
 % Grab directory contents
-s = what(DIR);
-matfiles = s.mat;
+T = csvread([DIR '/times.csv']);
+Y = csvread([DIR '/vertices.csv']);
+tis = load([DIR '/model_t_0.mat']);
+tis = tis.tis;
+
+n = numel(T);
 % Preallocate
-n = numel(matfiles);
 tisArr(1:n) = Tissue;
 
 for i = 1:n
-    load( [DIR '/' matfiles{i}] );
-    tisArr(i) = tis;
+    tis.evolve(Y(i,:), T(i));
+    tisArr(i) = Tissue(tis); % Make shallow copy
 end
-
-tisArr = tisArr.sort;
 
 end
