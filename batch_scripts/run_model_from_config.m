@@ -47,5 +47,6 @@ eval(['contract.contractility.params = ' ...
     get_field('contractParams') ';']);
 
 run_model(initialization,params,contract,OUT_DIR);
+assemble_model(OUT_DIR);
 
 end
