@@ -1751,7 +1751,7 @@ classdef Tissue < handle
             axis off
             hold off
             
-        end
+        end % DRAW
         
         function vid = movie(tissues,varargin)
             % Make a movie of tissue evolving. Can return just the
@@ -1766,7 +1766,14 @@ classdef Tissue < handle
                 opt = varargin;
             end
             
-            vid = VideoWriter('~/Desktop/model.avi');
+            ind = find( strcmpi(varargin,'save') );
+            if ~isempty(ind)
+               OUT_PATH = varargin{ind+1};
+            else
+               OUT_PATH = '~/Desktop/model.avi';
+            end
+            
+            vid = VideoWriter( OUT_PATH );
             vid.Quality = 100;
             vid.FrameRate = 7;
             open(vid);
