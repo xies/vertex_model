@@ -20,6 +20,6 @@ for i = 1:n
     tisArr(i) = Tissue(tis); % Make shallow copy
 end
 
-save([DIR 'model.mat'],'tisArr');
+save([DIR '/model.mat'],'tisArr');
 
 end
