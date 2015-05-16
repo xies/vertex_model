@@ -125,8 +125,6 @@ save([OUT_DIR '/model_t_0.mat'],'tis');
 csvwrite([OUT_DIR '/times.csv'],T);
 csvwrite([OUT_DIR '/vertices.csv'],Y);
 
-if nargout > 0
-    varargout{1} = assemble_model(OUT_DIR);
-end
+assemble_model(OUT_DIR);
 
 end
