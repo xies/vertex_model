@@ -26,6 +26,7 @@ params.connectivity = get_field('connectivity');
 params.timeStep = str2double(get_field('time_step'));
 params.dragCoeff = str2double(get_field('drag_coeff'));
 params.jitterSize = l*str2double(get_field('jitter_std'));
+params.t1Threshold = str2double(get_field('t1Threshold'));
 
 % Grab the integration method
 eval(['initialization.solver_method = ' ...

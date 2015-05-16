@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 8;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 32;
+HEX_NUM_Y = 16;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -33,7 +33,7 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 1e0;
+VISCOSITY_COEFF = 1e-2;
 
 JITTERING_STD = 1/10;
 
@@ -54,6 +54,7 @@ P0 = mean([tis.getCells.perimeter]);
 l = P0/6; % lattice length_scale
 um_per_px = sqrt(40/A0); % pixel size
 
+%%
 if DIMENSIONLESS
     param_config = {...
         'dimensonless', true, ...
@@ -99,9 +100,9 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
 tic
 
-MODEL_FUN = @variable_cutoff;
-CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*2;
-CONT_STD = CONTRACTILITY_MAGNITUDE * 0.05;
+MODEL_FUN = @gaussian_gradient_variable;
+CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*10;
+CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;
 
@@ -113,9 +114,9 @@ figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
-% contract_params = [CONTRACTILITY_MAGNITUDE midline_x, midline_y,...
-%     CONTRACTILE_WIDTH CONT_STD];
+% contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
+contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
+    CONTRACTILE_WIDTH CONT_STD];
 tis.setContractilityModel(MODEL_FUN,contract_params);
 C = tis.getContractility;
 T = toc;
