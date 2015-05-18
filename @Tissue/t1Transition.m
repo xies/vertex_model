@@ -36,8 +36,11 @@ end
 % and add both cells_single IDs to both vertices
 midpt(1) = mean([vt.x]); midpt(2) = mean([vt.y]);
 for i = 1:numel(vt)
-    theta = cells_both.get_angle;
-    vt(i) = vt(i).rotate(midpt,pi-theta);
+    % Figure out interface angle
+    alpha = edge.get_angle(tis);
+    % Find out intercalating cell angle
+    theta = abs(cells_both.get_angle);
+    vt(i) = vt(i).rotate(midpt,alpha-theta);
     tis.vertices( vt(i).ID ) = vt(i);
     vt(i).cellIDs = union( vt(i).cellIDs, ...
         [cells_single.cellID]);
@@ -56,8 +59,7 @@ for i = 1:numel(cells_single)
     cells_single(i).bondIDs = union( ...
         cells_single(i).bondIDs, edge.ID );
     % Put cell in Tissue
-    tis.cells( cells_single(i).cellID ) = ...
-        cells_single(i).updateCell(tis);
+    tis.cells( cells_single(i).cellID ) = cells_single(i);
 end
 
 % Figure out which vertex is closer to each cells_both
@@ -94,7 +96,7 @@ for i = 1:numel(cells_single)
     tis.vertices( vt(ind).ID ) = vt(ind);
     tis.vertices( vt(other_ind).ID ) = vt(other_ind);
     tis.cells( cells_both(i).cellID ) = ...
-        cells_both(i).updateCell(tis);
+        cells_both(i);
 end
 
 %%% DEBUG!!!!!!!!!! %%%
@@ -103,7 +105,14 @@ end
 %             end
 %%%%%%%%
 
-% Update matrices
+for i = 1:2
+    tis.cells( cells_both(i).cellID ) = ...
+        cells_both(i).updateCell(tis);
+    tis.cells( cells_single(i).cellID ) = ...
+        cells_single(i).updateCell(tis);
+end
+
+% Update matrices and cellms
 tis.updateVertCoords;
 tis.connect_interfaces('update');
 tis.interVertDist = squareform(pdist( tis.vert_coords ));
@@ -112,7 +121,5 @@ tis.interVertDist = squareform(pdist( tis.vert_coords ));
 % Set cool down time to 10 steps
 tis.t1List = cat(2,tis.t1List,sort([vt.ID])');
 tis.t1Time = [tis.t1Time tis.t];
-
-
 
 end % t1Transition

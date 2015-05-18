@@ -64,6 +64,12 @@ classdef Vertex
             v_array = v_array(I);
         end % sort
         
+%         function theta = get_angle(vt,refPoint)
+%             % Get angle from vertex to refPoint wrt x-axis
+%             % Uses atan2 (-pi , pi)
+%             theta = -atan2( vt.x - refPoint(1), vt.y - refPoint(2) );
+%         end
+        
         % ------- Change vertex --------
         function vx = move(vx,new_pos)
             %Specify new position
@@ -104,6 +110,54 @@ classdef Vertex
                 boolArr = []; return;
             end
             boolArr = ismember([tobeCompared.ID], [list.ID]);
+        end
+        
+        function flag = isClockwise(that,this,centroid)
+            % Use cross product to determine whether THAT vertex is
+            % clockwise to THIS vertex.
+            %
+            % USAGE: flag = that.isClockwise( this, centroid );
+            
+            centroid = [ensure_row(centroid) 0];
+            a = [this.x this.y 0] - centroid;
+            b = [that.x that.y 0] - centroid;
+            C = cross(a,b);
+            flag = dot(C,[0 0 1]) > 0;
+            
+        end
+        
+        % ---- Topology functionalities ----
+        
+        function nextVt = next(vt,cellm,tis,backtrace)
+            % Returns the "next" vertex, given a cell and starting vertex,
+            % defined by the clockwise ordering of the Interfaces belonging
+            % to that cell.
+            %
+            % USAGE: nextVt = startVt.next( cellm, tis)
+            
+            if any([numel(vt),numel(cellm)] ~= [1 1])
+                error('Single vertex and cell required');
+            end
+            
+            % Find edges in cell that's connected to VT
+            edges = tis.getInterfaces( intersect( ...
+                cellm.bondIDs, vt.bondIDs ) );
+            if numel(edges) ~= 2,keyboard; end
+            
+            % Candidates are the other 2 vertices connected to 2 edges
+            candidateVts = tis.getVertices(setdiff( [edges.vIDs], vt.ID));
+            
+            % If we have a backtrace, simply take the candidate that's not
+            % the backtrace. Otherwise, move left and up.
+            if isempty(backtrace)
+                [~,I] = min([candidateVts.x] - vt.x);
+%                 [~,J] = min([candidateVts.y] - vt.y);
+                nextVt = candidateVts(I);
+            else
+                nextVt = candidateVts([candidateVts.ID] ~= backtrace.ID);
+            end
+            
+            if numel(nextVt) ~= 1,keyboard; end
         end
         
         % ---- Visualize ----

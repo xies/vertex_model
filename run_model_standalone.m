@@ -100,8 +100,8 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
 tic
 
-MODEL_FUN = @gaussian_gradient_variable;
-CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*0;
+MODEL_FUN = @variable_cutoff;
+CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*10;
 CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;
@@ -114,9 +114,9 @@ figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-% contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
-contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
-    CONTRACTILE_WIDTH CONT_STD];
+contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
+% contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
+%     CONTRACTILE_WIDTH CONT_STD];
 tis.setContractilityModel(MODEL_FUN,contract_params);
 C = tis.getContractility;
 T = toc;

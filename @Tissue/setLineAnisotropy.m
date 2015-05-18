@@ -19,7 +19,7 @@ if a == 1, return; end % Do nothing if a is unit
 new_tensions = zeros(1,numel(bIDList));
 for i = 1:numel(bIDList)
     e = tis.interfaces( bIDList(i) );
-    theta = e.angle;
+    theta = abs(e.angle);
     % Scale horizontal junctions by factor
     if theta < pi/4 || theta > 3*pi/4
         e.tension = sigma*a;

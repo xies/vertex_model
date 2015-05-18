@@ -158,4 +158,8 @@ for i = 1:tis.interfaces.length
         tis.interfaces(bIDList(i)).updateInterface(tis);
 end
 
+if ~isValid(tis)
+    error('Tissue not self-consistent, exiting');
+end
+
 end % setParameters

@@ -197,7 +197,7 @@ classdef CellModel
             % See also: POLYAREA
             
             vt = tis.getVertices( cellm.vIDs );
-            vt = sort(vt, cellm.centroid); % sort counter-clockwise
+%             vt = sort(vt, cellm.centroid); % sort counter-clockwise
             x = [vt.x]; y = [vt.y];
             if ~isempty(tis.parameters)
                 l = tis.parameters.um_per_px;
@@ -214,7 +214,7 @@ classdef CellModel
             %
             % USAGE: p = get_perimeter(cellm,tis)
             vt = tis.getVertices( cellm.vIDs );
-            vt = vt.sort(cellm.centroid);
+%             vt = vt.sort(cellm.centroid);
             x = [vt.x]; y = [vt.y];
             xplus1 = x([2:end 1]); yplus1 = y([2:end 1]);
             p = sum( sqrt((x-xplus1).^2 + (y-yplus1).^2) );
@@ -283,11 +283,32 @@ classdef CellModel
             % 
             % USAGE: cell = cell.updateCell(tis)
             
-            % Make sure cell vts are sorted!
+            % Make sure cell vts are sorted according to edges!
             vts = tis.getVertices(cellm.vIDs);
-            cellm.vIDs = [vts.sort(cellm.centroid).ID];
-            cellm.centroid = cellm.get_centroid( tis );
+            vts_old = vts;
+            % Start with the most "bottom" vertex and move left + up
+            [~,I] = min( [vts.x] ); vts(1) = vts(I);
+            backtrace = [];
+            for i = 2:numel(vts)
+                % Use which edge we were just at (backtrace) to trace
+                % clockwise
+                vts(i) = vts(i-1).next(cellm,tis,backtrace);
+                backtrace = vts(i-1);
+            end
+            
+            if unique([vts.ID]) ~= unique([vts_old.ID])
+                keyboard;
+            end
+            
+            cellm.vIDs = [vts.ID];
+            % Check that we have positive area -- if not, need to reverse
             cellm.area = cellm.get_area( tis );
+            if cellm.area < 0
+                cellm.vIDs = cellm.vIDs(end:-1:1);
+                cellm.area = cellm.get_area( tis );
+            end
+            % Fill in other info
+            cellm.centroid = cellm.get_centroid( tis );
             cellm.perimeter = cellm.get_perimeter( tis );
             cellm.anisotropy = cellm.get_anisotropy( tis );
             cellm.energy = cellm.get_energy(tis);
@@ -373,7 +394,7 @@ classdef CellModel
         function image = draw(cellm,tis)
             % Draws a binary outline of the cell
             v = tis.getVertices( cellm.vIDs );
-            v = v.sort(cellm.centroid);
+%             v = v.sort(cellm.centroid);
             vx = [v.x]; vy = [v.y];
             [xe,ye] = poly2edge(vx,vy);
             Xs = tis.Xs; Ys = tis.Ys;
@@ -384,7 +405,7 @@ classdef CellModel
         function image = drawMask(cellm,tis)
             % Use POLY2MASK to draw a mask of the current cell
             v = tis.getVertices( cellm.vIDs );
-            v = v.sort(cellm.centroid);
+%             v = v.sort(cellm.centroid);
             Xs = tis.Xs; Ys = tis.Ys;
             image = poly2mask([v.y],[v.x],Xs,Ys);
             

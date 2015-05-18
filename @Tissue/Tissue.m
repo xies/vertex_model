@@ -248,7 +248,7 @@ classdef Tissue < handle
             C = nan( T,num_cells );
             for i = 1:T
                 c = tisArray(i).getCells;
-                c = c.sortbyID;
+                c = c.sortByID;
                 C(i,:) = [c.contractility];
             end
         end % getContractility
