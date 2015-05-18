@@ -1,4 +1,5 @@
 function tisArr = bogacki_shampine(tis,init,OUT_DIR)
+% BOGACKI_SHAMPINE
 % Performs Bogacki-Shampine integration on TISSUE model. Saves every step
 % of the solution to OUT_DIR. Stopping criterion is both maxIter and an
 % energy tolerance (relative)

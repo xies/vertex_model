@@ -1,4 +1,5 @@
 function tisArr = explicit_euler(tis,init,OUT_DIR)
+% EXPLICIT_EULER
 % Performs explicit Euler integration on TISSUE model. Saves every step of
 % the solution to OUT_DIR. Stopping criterion is both maxIter and an energy
 % tolerance (relative)
