@@ -46,15 +46,22 @@ classdef Vertex
             % Euclidean distance
             d = sqrt(([vt1.x]-[vt2.x])^2 + ([vt1.y]-[vt2.y])^2);
         end
+        
+        function v_array = sortByDistance(v_array,point)
+            % Sort an array based on distance wrt point
+            vx = [v_array.x]; vy = [v_array.y];
+            D2 = (vx - point(2)).^2 + (vy - point(1)).^2;
+            [~,I] = sort(D2);
+            v_array = v_array(I);
+        end
+        
         function v_array = sort(v_array,centroid)
             % Sort an array based on clock-wise angle wrt CENTROID
             % Should begin in the -y axis (min angle is -pi)
-            
             vx = [v_array.x]; vy = [v_array.y];
             angles = atan2( vy-centroid(2), vx-centroid(1));
             [~,I] = sort(angles);
             v_array = v_array(I);
-            
         end % sort
         
         % ------- Change vertex --------

@@ -158,9 +158,9 @@ classdef CellModel
         % --------- Measurements ---------
         
         function E = get_energy(cellm,tis)
+            %GET_ENERGY
             % Caculates the current reduced energy associated with this cell
             % E = area_elastic + perim_minization + contractility
-            %
             
             if tis.parameters.dimensionless
                 sigma = tis.parameters.forceScale;
@@ -174,10 +174,10 @@ classdef CellModel
                 E = E + cellm.contractility * cellm.area ^ 2;
                 
                 E = E/sigma/lambda;
-            
-        end
+        end % get_energy
         
         function a = get_anisotropy(cellm,tis)
+            %GET_ANISOTROPY
             % Measures anisotropy of current cell by drawing a mask of it
             % and running regionprops
             % 
@@ -189,6 +189,7 @@ classdef CellModel
         end % get_anisotropy
         
         function a = get_area(cellm,tis)
+            %GET_AREA
             % Calculates area from the vertex positions directly
             %
             % USAGE: a = get_area(cellm,tis)
@@ -208,6 +209,7 @@ classdef CellModel
         end % get_area
         
         function p = get_perimeter(cellm,tis)
+            %GET_PERIMETER
             % Calculates perimeter from the vertex positions directly
             %
             % USAGE: p = get_perimeter(cellm,tis)
@@ -219,6 +221,7 @@ classdef CellModel
         end % get_perimeter
         
         function centroid = get_centroid(cellm,tis)
+            %GET_CENTROID
             % Calculates centroid from the vertex positions directly
             % USAGE: ct = get_centroid(cellm,tis)
             
@@ -230,6 +233,7 @@ classdef CellModel
         end % get_centroid
         
         function D = get_distance_to(cellm,pt)
+            %GET_DISTANCE_TO
             % Get distance of cell centroid to external points
             % USAGE: D = cellm.get_distance_to(points)
             ct = cellm.centroid;
@@ -237,6 +241,7 @@ classdef CellModel
         end % get_distance_to
         
         function theta = get_angle(cells)
+            %GET_ANGLE
             % Get the angle that the centroids of two cellmodels make to
             % the horizontal x-axis
             % 
@@ -245,6 +250,17 @@ classdef CellModel
             if numel(cells) ~= 2, error('Need precisely 2 cells'); end
             ct = cat(1,cells.centroid);
             theta = atan2( diff(ct(:,1)),diff(ct(:,2)) );
+        end
+        
+        function in = contains(cellm,point,tis)
+            %contains
+            % Test for whether given point is inside given cell.
+            %
+            % USAGE: flag = cellm.contains( point, tis )
+            
+            vt = tis.getVertices( cellm.vIDs );
+            in = inpolygon( point(2),point(1),[vt.y],[vt.x]);
+            
         end
         
         % ------- Cell set methods -------
@@ -278,10 +294,21 @@ classdef CellModel
             
         end % updatedCell
         
-        function c_array = sort(c_array,point)
+        function c_array = sortByDistance(c_array,point)
+            % Sort an array based on distance wrt a POINT
+            % 
+            % USAGE: cells_array = sortByDistance(cell_array, point)
+            
+            ct = cat(1,c_array.centroid);
+            D2 = (ct(:,1)-point(2)).^2 + (ct(:,2)-point(1)).^2;
+            [~,I] = sort(D2);
+            c_array = c_array(I);
+        end
+        
+        function c_array = sortByAngle(c_array,point)
             % Sort an array based on clock-wise angle wrt a POINT
             % 
-            % USAGE: cells_array = sort(cell_array, point)
+            % USAGE: cells_array = sortByAngle(cell_array, point)
             
             ct = cat(1,c_array.centroid);
             angles = atan2( ct(:,1)-point(2), ct(:,2)-point(1));
@@ -290,7 +317,7 @@ classdef CellModel
             
         end % sort
         
-        function c_array = sortbyID( c_array )
+        function c_array = sortByID( c_array )
             % Sort a CellModel array by ID.
             IDs = [c_array.cellID];
             [~,I] = sort(IDs);

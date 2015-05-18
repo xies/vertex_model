@@ -2,12 +2,12 @@
 
 %% Set parameters
 clc
-% HEX_ANGLE = 'horizontal';
+HEX_ANGLE = 'horizontal';
 % HEX_ANGLE = 'vertical';
-HEX_ANGLE = 'diagonal';
+% HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 32;
-HEX_NUM_Y = 16;
+HEX_NUM_X = 6;
+HEX_NUM_Y = 6;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -33,9 +33,9 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 1e-2;
+VISCOSITY_COEFF = 1e1;
 
-JITTERING_STD = 1/10;
+JITTERING_STD = 1/5;
 
 %% Initialize model
 
@@ -54,7 +54,7 @@ P0 = mean([tis.getCells.perimeter]);
 l = P0/6; % lattice length_scale
 um_per_px = sqrt(40/A0); % pixel size
 
-%%
+%
 if DIMENSIONLESS
     param_config = {...
         'dimensonless', true, ...
@@ -101,7 +101,7 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @gaussian_gradient_variable;
-CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*10;
+CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*0;
 CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;

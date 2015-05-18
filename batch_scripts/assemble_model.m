@@ -16,7 +16,7 @@ n = numel(T);
 tisArr(1:n) = Tissue;
 
 for i = 1:n
-    tis.evolve(Y(i,:), T(i));
+    tis.move_vts(Y(i,:), T(i));
     tisArr(i) = Tissue(tis); % Make shallow copy
 end
 

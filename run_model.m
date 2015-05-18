@@ -107,7 +107,6 @@ T = toc;
 display(['Jitter added and contractility set in ' num2str(T) ' sec'])
 
 % init.integration_method(tis,init,OUT_DIR);
-opt = odeset('OutputFcn',@odeprint); % Suppress plotting
 
 % Need to make sure everything is gone in OUT_DIR that might
 % conflict.
@@ -116,15 +115,11 @@ if ~isempty(s.mat)
     error(['Please clear the contents of ' OUT_DIR]);
 end
 
-verts = tis.vert_coords;
+tisArr = tis.solve([init.t0 init.tf],OUT_DIR);
 % Save initial tissue configuration for later assembling
-save([OUT_DIR '/model_t_0.mat'],'tis');
+if nargout > 0
+    varargout{1} = tisArr;
+end
 
-[T,Y] = ode23(@(t,y) tis.step(t,y),[init.t0 init.tf],verts,opt);
-
-csvwrite([OUT_DIR '/times.csv'],T);
-csvwrite([OUT_DIR '/vertices.csv'],Y);
-
-assemble_model(OUT_DIR);
 
 end
