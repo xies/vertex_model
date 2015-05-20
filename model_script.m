@@ -2,12 +2,12 @@
 
 %% Set parameters
 clc
-HEX_ANGLE = 'horizontal';
+% HEX_ANGLE = 'horizontal';
 % HEX_ANGLE = 'vertical';
-% HEX_ANGLE = 'diagonal';
+HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 6;
-HEX_NUM_Y = 6;
+HEX_NUM_X = 5;
+HEX_NUM_Y = 5;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -35,7 +35,7 @@ abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
 VISCOSITY_COEFF = 1e1;
 
-JITTERING_STD = 1/5;
+JITTERING_STD = 1/5 * l;
 
 %% Initialize model
 
@@ -71,7 +71,7 @@ if DIMENSIONLESS
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 10, ...
-        't1Threshold',2 ...
+        't1Threshold',5 ...
         };
 else
     param_config = {...
@@ -88,7 +88,7 @@ else
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 10 ...
-        't1Threshold',2 ...
+        't1Threshold',4 ...
         };
 end
 
@@ -101,13 +101,13 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 tic
 
 MODEL_FUN = @variable_cutoff;
-CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*10;
+CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*100;
 CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 40; % pxs
 ALT_TENSION = 1;
 
 % Activate "ventral fate"
-box = [ 1/2-1/3 , 1/10 , 1/2+1/3 , 9/10 ];
+box = [ 1/2-1/6 , 1/2-1/6 , 1/2+1/6 , 1/2+1/3 ];
 cIDs = tis.getCellsWithinRegion(box);
 tis.activateCell(cIDs,ALT_TENSION);
 figure(1),tis.draw('showActive'); title('Ventral fated cells')
@@ -131,11 +131,12 @@ tis.jitterVertices(JITTERING_STD);
 num_cells = tis.cells.length;
 
 T = toc;
-display(['Jitter added and contractility set in ' num2str(T) ' sec'])
+display(['Jitter added in ' num2str(T) ' sec'])
 tis.draw('showContractile'); title('Initial condition')
 
 %% Runge-Kutta 2/3
 
+tis_init = Tissue(tis);
 opt = odeset('OutputFcn',@odeprint);
 OUT_DIR = '~/Desktop/tmp';
 

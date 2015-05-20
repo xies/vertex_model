@@ -16,6 +16,7 @@ n = numel(T);
 tisArr(1:n) = Tissue;
 
 for i = 1:n
+    display(['Assembling time = ' num2str(T(i))]);
     tis.move_vts(Y(i,:), T(i));
     tisArr(i) = Tissue(tis); % Make shallow copy
 end
