@@ -22,5 +22,6 @@ for i = 1:n
 end
 
 save([DIR '/model.mat'],'tisArr');
+display(['Model assembled at: ' DIR '/model.mat']);
 
 end
