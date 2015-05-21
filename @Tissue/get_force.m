@@ -39,9 +39,7 @@ for i = 1:num_verts
     
     % Find connected vertices
     vi = tis.vertices(vIDList(i));
-    %                 J = find(conn(i,:) == 1); % Idx of connected vertices
     num_neighbors = numel( vi.cellIDs );
-    %                 num_edges = numel(vi.bondIDs);
     
     % Only give nonzero velocities for vertices w/ more than 2
     % cell neighbors (non-fixed cells)
@@ -76,9 +74,6 @@ for i = 1:num_verts
                 / D(i,other_vert);
         end
         
-        %                     tis.draw('showVectors',{-line_tension_term,i},'showActive');
-        %                     keyboard
-        
         % Go through all CELLS associated with current vertex,
         % and calculate cell elasticity.
         % NOTE that we can't just go through "edges" themselves
@@ -86,7 +81,7 @@ for i = 1:num_verts
             
             % Need to sort vertices counter-clockwise
             sortedVt = tis.getVertices( this_cell.vIDs );
-            sortedVt = sortedVt.sort( this_cell.centroid );
+            sortedVt = sortedVt.sortClockwise( this_cell.centroid );
             
             % Find this current vertex and its immediate
             % neighboring vertices
@@ -126,8 +121,6 @@ for i = 1:num_verts
         %                     drawnow
         
     end
-    
-    %                 if any(any(isnan( V ))), keyboard; end
     
 end
 

@@ -1,20 +1,39 @@
 classdef Vertex
     % ---- Properties ----
-    %   ID
-    %   x
-    %   y
-    %   cellIDs
-    %   bondIDs
+    %   ID - Key to the Map owned by Tissue
+    %   x - x position (pixel)
+    %   y - y position (pixel)
+    %   cellIDs - CellModels which have this vertex
+    %   bondIDs - Interfaces connected to this vertex
+    %
     % --- Methods ----
+    %
+    % -- Measurement --
     %   distance - distance b/w two vertices
-    %   sort - sort counter-clockwise around a given point
+    %
+    % -- Sorting --
+    %   sortByDistance - sort by distance to a reference point
+    %   sortClockwise - sort counter-clockwise around a given point
+    %   sortByID - sort by ID
+    %
+    % -- Changing position --
     %   move - move to new position
     %   rotate - rotate counter-clockwise by a given angle
+    %
+    % -- Comparators --
     %   eq/ne - comparison done by x+y
     %   ismember - comparison by ID
+    %   isClockwise - whether one vt is clockwise to another with respect
+    %      to a reference origin
+    %
+    % -- Topological --
+    %   next - gives the "next" vertex if given a cell and a connected
+    %      Interface network by following the Interfaces of a single cell
+    %      clockwise
+    % 
     % ---Visualize ---
-    %   draw
-    %   line
+    %   draw - draws vertex as a dot
+    %   line - draws a line between two vertices
     % 
     % xies@mit.edu March 2015
     
@@ -47,6 +66,7 @@ classdef Vertex
             d = sqrt(([vt1.x]-[vt2.x])^2 + ([vt1.y]-[vt2.y])^2);
         end
         
+        % ------- Sorting --------
         function v_array = sortByDistance(v_array,point)
             % Sort an array based on distance wrt point
             vx = [v_array.x]; vy = [v_array.y];
@@ -55,7 +75,14 @@ classdef Vertex
             v_array = v_array(I);
         end
         
-        function v_array = sort(v_array,centroid)
+        function v_array = sortByID(v_array)
+            % Sort a Vertex array by its .ID
+            IDs = [v_array.ID];
+            [~,I] = sort(IDs);
+            v_array = v_array(I);
+        end
+        
+        function v_array = sortClockwise(v_array,centroid)
             % Sort an array based on clock-wise angle wrt CENTROID
             % Should begin in the -y axis (min angle is -pi)
             vx = [v_array.x]; vy = [v_array.y];
@@ -64,13 +91,7 @@ classdef Vertex
             v_array = v_array(I);
         end % sort
         
-%         function theta = get_angle(vt,refPoint)
-%             % Get angle from vertex to refPoint wrt x-axis
-%             % Uses atan2 (-pi , pi)
-%             theta = -atan2( vt.x - refPoint(1), vt.y - refPoint(2) );
-%         end
-        
-        % ------- Change vertex --------
+        % ------- Changing position --------
         function vx = move(vx,new_pos)
             %Specify new position
             vx.x = new_pos(1); vx.y = new_pos(2);

@@ -15,11 +15,15 @@ n = numel(T);
 % Preallocate
 tisArr(1:n) = Tissue;
 
+ind = 1;
 for i = 1:n
     display(['Assembling time = ' num2str(T(i))]);
     tis.move_vts(Y(i,:), T(i));
-    tisArr(i) = Tissue(tis); % Make shallow copy
+    tisArr(ind) = Tissue(tis); % Make shallow copy
+    ind = ind + 1;
 end
+
+tisArr(isempty(tisArr)) = [];
 
 save([DIR '/model.mat'],'tisArr');
 display(['Model assembled at: ' DIR '/model.mat']);

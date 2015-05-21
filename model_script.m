@@ -33,7 +33,7 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 1e1;
+VISCOSITY_COEFF = 10;
 
 JITTERING_STD = 1/5 * l;
 
@@ -70,7 +70,7 @@ if DIMENSIONLESS
         'stepSize', TIME_STEP, ...
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
-        'dt_per_frame', 10, ...
+        'dt_per_frame', 0.01, ...
         't1Threshold',5 ...
         };
 else
@@ -87,7 +87,7 @@ else
         'stepSize', TIME_STEP, ...
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
-        'dt_per_frame', 10 ...
+        'dt_per_frame', 0.01, ...
         't1Threshold',4 ...
         };
 end
@@ -141,65 +141,65 @@ opt = odeset('OutputFcn',@odeprint);
 OUT_DIR = '~/Desktop/tmp';
 
 %% Euler scheme of model integration
-
-tissueArray(1) = tis;
-E = zeros(1,STEPS); Econt = zeros(1,STEPS);
-contractility = zeros(num_cells,STEPS);
-
-for i = 1:100
-    
-    tic
-    
-    verts_old = tis.vert_coords;
-    displacements = tis.get_force ...
-        /tis.parameters.viscosity * tis.parameters.lengthScale ...
-        * tis.parameters.stepSize / um_per_px;
-    verts = verts_old + displacements;
-    
-    tis = tis.evolve( verts );
-    tissueArray( i + 1 ) = tis;
-    E(i) = tis.get_energy;
-    
-    if (abs(E - E_prev) < rel_tol * E ...
-            || abs(E - E_prev) < abs_tol), break; end
-    while i>1 && E(i) - E(i-1) > 0
-        % If unstable, try again with smaller stepSize (by 1/5) each time
-%         display(['New step size: ' num2str(tis.parameters.stepSize / 5)])
-%         tis_old = tissueArray(i);
-%         tis_old.parameters.stepSize = tis.parameters.stepSize / 5;
-%         verts = tis_old.vert_coords;
-%         displacements = tis_old.get_force ...
-%             / tis.parameters.viscosity * tis.parameters.lengthScale ...
-%             * tis.parameters.stepSize / um_per_px;
-%         verts = verts + displacements;
-%         
-%         tis = tis_old.evolve( verts );
-%         tis.parameters.stepSize = tis.parameters.stepSize/5;
-%         tissueArray( i + 1 ) = tis;
-%         E(i) = tis.get_energy;
-%         keyboard
-        error('Unstable!')
-    end
-    
-%     if mod(i,10) == 0
-%         % Add random noise
-%         C(cIDs) = max(C(cIDs) + CONTRACTILITY_MAGNITUDE/100 * randn(1,numel(cIDs)),0);
-% %         C(cIDs) = min(C(cIDs),5e-4);
-%         tis = tis.setContractility(C);
+% 
+% tissueArray(1) = tis;
+% E = zeros(1,STEPS); Econt = zeros(1,STEPS);
+% contractility = zeros(num_cells,STEPS);
+% 
+% for i = 1:100
+%     
+%     tic
+%     
+%     verts_old = tis.vert_coords;
+%     displacements = tis.get_force ...
+%         /tis.parameters.viscosity * tis.parameters.lengthScale ...
+%         * tis.parameters.stepSize / um_per_px;
+%     verts = verts_old + displacements;
+%     
+%     tis = tis.evolve( verts );
+%     tissueArray( i + 1 ) = tis;
+%     E(i) = tis.get_energy;
+%     
+%     if (abs(E - E_prev) < rel_tol * E ...
+%             || abs(E - E_prev) < abs_tol), break; end
+%     while i>1 && E(i) - E(i-1) > 0
+%         % If unstable, try again with smaller stepSize (by 1/5) each time
+% %         display(['New step size: ' num2str(tis.parameters.stepSize / 5)])
+% %         tis_old = tissueArray(i);
+% %         tis_old.parameters.stepSize = tis.parameters.stepSize / 5;
+% %         verts = tis_old.vert_coords;
+% %         displacements = tis_old.get_force ...
+% %             / tis.parameters.viscosity * tis.parameters.lengthScale ...
+% %             * tis.parameters.stepSize / um_per_px;
+% %         verts = verts + displacements;
+% %         
+% %         tis = tis_old.evolve( verts );
+% %         tis.parameters.stepSize = tis.parameters.stepSize/5;
+% %         tissueArray( i + 1 ) = tis;
+% %         E(i) = tis.get_energy;
+% %         keyboard
+%         error('Unstable!')
 %     end
-    
-%     figure(1)
-%     tis.draw('showVectors',displacements, ...
-%         'showContractile');
-%     title(['Time step = ' num2str(i)]);
-%     figure(2)
-%     hist(displacements(:),30);
-%     drawnow;
-    
-    T = toc;
-    display([num2str(i) '-th time step (' num2str(T) ' sec)'])
-    
-end
-
-tissueArray(i+1:end) = [];
-% save(['~/Dropbox (MIT)/model_contractility_to_Ka_1' ],'tissueArray');
+%     
+% %     if mod(i,10) == 0
+% %         % Add random noise
+% %         C(cIDs) = max(C(cIDs) + CONTRACTILITY_MAGNITUDE/100 * randn(1,numel(cIDs)),0);
+% % %         C(cIDs) = min(C(cIDs),5e-4);
+% %         tis = tis.setContractility(C);
+% %     end
+%     
+% %     figure(1)
+% %     tis.draw('showVectors',displacements, ...
+% %         'showContractile');
+% %     title(['Time step = ' num2str(i)]);
+% %     figure(2)
+% %     hist(displacements(:),30);
+% %     drawnow;
+%     
+%     T = toc;
+%     display([num2str(i) '-th time step (' num2str(T) ' sec)'])
+%     
+% end
+% 
+% tissueArray(i+1:end) = [];
+% % save(['~/Dropbox (MIT)/model_contractility_to_Ka_1' ],'tissueArray');

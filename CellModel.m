@@ -110,7 +110,7 @@ classdef CellModel
                 
                 % Sort all vertices
                 vts = parent.getVertices( vIDs );
-                vts = vts.sort( obj.centroid );
+                vts = vts.sortClockwise( obj.centroid );
                 obj.vIDs = [vts.ID];
 
                 % Put in default values
@@ -226,7 +226,7 @@ classdef CellModel
             % USAGE: ct = get_centroid(cellm,tis)
             
             vt = tis.getVertices( cellm.vIDs );
-            vt = sort(vt, cellm.centroid); % sort counter-clockwise
+            vt = sortClockwise(vt, cellm.centroid); % sort counter-clockwise
             x = [vt.x]; y = [vt.y];
             G = polygeom(x,y);
             centroid = [G(2), G(3)];

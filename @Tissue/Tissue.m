@@ -38,6 +38,7 @@ classdef Tissue < handle
     %   
     %   --- Simulation housekeeping methods ---
     %       move_vts - make new configuration via updating vert_coords
+    %       moveVertex - move single vertex and update tissue
     %       t1Transition - T1 transition
     %       setParameters - sets the parameters and connects vertices
     %       updateVertCoords - update vert_coords explicitly
@@ -216,6 +217,19 @@ classdef Tissue < handle
         % Consistency checker
         flag = isValid(tis)
         
+        function flags = isempty(tisArr)
+            flags = false(1,numel(tisArr));
+            flags = flags | cellfun(@isempty,{tisArr.cells});
+%                 flag = 1; return;
+%             end
+%             if tis.vertices.length == 0,
+%                 flag = 1; return;
+%             end
+%             if tis.interfaces.length == 0,
+%                 flag = 1; return;
+%             end
+        end
+        
         % ------  Calculate energy, force ------
         F = get_force(tis)
         E = get_energy(tis)
@@ -264,7 +278,7 @@ classdef Tissue < handle
             CX = nan( T,num_cells );
             for i = 1:T
                 c = tisArray(i).getCells;
-                c = c.sortbyID;
+                c = c.sortByID;
                 cx = cat(1,c.centroid);
                 CX(i,:) = cx(:,2);
             end
@@ -281,11 +295,39 @@ classdef Tissue < handle
             CY = nan( T,num_cells );
             for i = 1:T
                 c = tisArray(i).getCells;
-                c = c.sortbyID;
+                c = c.sortByID;
                 cy = cat(1,c.centroid);
                 CY(i,:) = cy(:,1);
             end
         end % getCentroidY
+        
+        function VX = getVertexX(tisArray)
+            T = numel(tisArray);
+            % @todo: assumes tisArray does not change number of vts over
+            % time!!
+            % Idea for imporving: use cellID to make a NaN-padded array?
+            num_vertices = tisArray(1).vertices.length;
+            VX = nan( T,num_vertices );
+            for i = 1:T
+                v = tisArray(i).getVertices;
+                v = v.sortByID;
+                VX(i,:) = cat(1,v.x);
+            end
+        end % getVertexX
+        
+        function VY = getVertexY(tisArray)
+            T = numel(tisArray);
+            % @todo: assumes tisArray does not change number of vts over
+            % time!!
+            % Idea for imporving: use cellID to make a NaN-padded array?
+            num_vertices = tisArray(1).vertices.length;
+            VY = nan( T,num_vertices );
+            for i = 1:T
+                v = tisArray(i).getVertices;
+                v = v.sortByID;
+                VY(i,:) = cat(1,v.y);
+            end
+        end % getVertexY
         
         function T = getTime(tisArray)
             % Returns a vector of the simulation time contained in
@@ -305,6 +347,12 @@ classdef Tissue < handle
             v = tis.getVertices;
             vx = [v.x]; vy = [v.y];
             tis.vert_coords = cat(2,vx',vy');
+        end
+        
+        function moveVertex(tis,vID,new_coord)
+            % Move a single vertex
+            tis.vertices(vID) = tis.vertices(vID).move(new_coord);
+            tis.updateVertCoords;
         end
         
         % -- Activate cell (mark as "ventral") --
