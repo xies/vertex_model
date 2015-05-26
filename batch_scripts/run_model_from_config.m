@@ -1,4 +1,4 @@
-function run_model_from_config(CONFIG_DIR,OUT_DIR)
+function tisArr = run_model_from_config(CONFIG_DIR,OUT_DIR)
 
 T = readtable(CONFIG_DIR,'ReadRowNames',true);
 get_field = @(fieldname) cell2mat(T(fieldname,:).Value);
@@ -26,6 +26,7 @@ params.connectivity = get_field('connectivity');
 params.timeStep = str2double(get_field('time_step'));
 params.dragCoeff = str2double(get_field('drag_coeff'));
 params.jitterSize = l*str2double(get_field('jitter_std'));
+% params.t1Threshold = 2;
 params.t1Threshold = str2double(get_field('t1Threshold'));
 
 % Grab the integration method
@@ -48,6 +49,6 @@ eval(['contract.contractility.params = ' ...
     get_field('contractParams') ';']);
 
 run_model(initialization,params,contract,OUT_DIR);
-assemble_model(OUT_DIR);
+tisArr = assemble_model(OUT_DIR);
 
 end

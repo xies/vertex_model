@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 5;
-HEX_NUM_Y = 5;
+HEX_NUM_X = 15;
+HEX_NUM_Y = 15;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -35,7 +35,7 @@ abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
 VISCOSITY_COEFF = 10;
 
-JITTERING_STD = 1/5 * l;
+JITTERING_STD = 1/10 * l;
 
 %% Initialize model
 
@@ -71,7 +71,7 @@ if DIMENSIONLESS
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 0.01, ...
-        't1Threshold',5 ...
+        't1Threshold',2 ...
         };
 else
     param_config = {...
@@ -88,7 +88,7 @@ else
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 0.01, ...
-        't1Threshold',4 ...
+        't1Threshold',2 ...
         };
 end
 
@@ -100,23 +100,23 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
 tic
 
-MODEL_FUN = @variable_cutoff;
-CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*100;
+MODEL_FUN = @gaussian_gradient_variable;
+CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*1;
 CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
-CONTRACTILE_WIDTH = 40; % pxs
+CONTRACTILE_WIDTH = 20; % pxs
 ALT_TENSION = 1;
 
 % Activate "ventral fate"
-box = [ 1/2-1/6 , 1/2-1/6 , 1/2+1/6 , 1/2+1/3 ];
+box = [ 1/2-1/4 , 1/2-5/6 , 1/2+1/4 , 1/2+5/6 ];
 cIDs = tis.getCellsWithinRegion(box);
 tis.activateCell(cIDs,ALT_TENSION);
 figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
-% contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
-%     CONTRACTILE_WIDTH CONT_STD];
+% contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
+contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
+    CONTRACTILE_WIDTH CONT_STD];
 tis.setContractilityModel(MODEL_FUN,contract_params);
 C = tis.getContractility;
 T = toc;

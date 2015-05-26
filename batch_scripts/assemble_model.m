@@ -21,11 +21,14 @@ for i = 1:n
     tis.move_vts(Y(i,:), T(i));
     tisArr(ind) = Tissue(tis); % Make shallow copy
     ind = ind + 1;
+%     if tis.t > 200
+%         break
+%     end
 end
 
 tisArr(isempty(tisArr)) = [];
 
-save([DIR '/model.mat'],'tisArr');
+save('-v7.3',[DIR '/model.mat'],'tisArr');
 display(['Model assembled at: ' DIR '/model.mat']);
 
 end
