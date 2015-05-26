@@ -7,7 +7,7 @@ function tisArr = solve(tis,tspan,OUT_DIR)
 verts = tis.vert_coords;
 save([OUT_DIR '/model_t_0.mat'],'tis');
 
-opt = odeset('OutputFcn',@odeprint); % Suppress plotting
+opt = odeset('OutputFcn',@solver_output); % Suppress plotting
 [T,Y] = ode23(@(t,y) tis.step(t,y),tspan,verts,opt);
 
 csvwrite([OUT_DIR '/times.csv'],T);
