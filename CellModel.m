@@ -32,7 +32,13 @@ classdef CellModel
     %       get_perimeter - get perimeter from vertex positions
     %       get_centroid - get centroid from vertex positions
     %       get_anisotropy - get area from vertex-derived mask  (@todo work with non-binary)
-    %       get_distance_to
+    %       get_distance_to - get distance of cell centroid to another
+    %           given point
+    %       contains - whether a point is contained in a cell
+    %       get_vertices - returns the set of Vertex models touching this
+    %          cell
+    %       get_bonds - returns the set of Interface models touching this
+    %          cell
     %
     %   --- Cell set methods ---
     %       activateCell - set cell to active
@@ -185,7 +191,9 @@ classdef CellModel
             %
             % @todo: Fix this situation where object breaks by not using
             % the binary mask but vertices themselves
-            a = 1;
+            vt = cellm.get_vertices(tis);
+            f = fit_ellipse([vt.y],[vt.x]);
+            a = f.short_axis / f.long_axis;
         end % get_anisotropy
         
         function a = get_area(cellm,tis)
@@ -250,6 +258,14 @@ classdef CellModel
             if numel(cells) ~= 2, error('Need precisely 2 cells'); end
             ct = cat(1,cells.centroid);
             theta = atan2( diff(ct(:,1)),diff(ct(:,2)) );
+        end
+        
+        function vts = get_vertices(cellm,tis)
+            vts = tis.getVertices( cellm.vIDs );
+        end
+        
+        function bds = get_bonds(cellm,tis)
+            bds = tis.getInterfaces( cellm.bondIDs );
         end
         
         function in = contains(cellm,point,tis)

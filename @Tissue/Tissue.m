@@ -328,6 +328,22 @@ classdef Tissue < handle
                 VY(i,:) = cat(1,v.y);
             end
         end % getVertexY
+
+        function A = getAnisotropy(tisArray)
+            % Returns an array (or vector) of the centroid-y contained in
+            % input tissue array.
+            T = numel(tisArray);
+            % @todo: assumes tisArray does not change number of cells over
+            % time!!
+            % Idea for imporving: use cellID to make a NaN-padded array?
+            num_cells = tisArray(1).cells.length;
+            A = nan( T,num_cells );
+            for i = 1:T
+                c = tisArray(i).getCells;
+                c = c.sortByID;
+                A(i,:) = cat(1,c.anisotropy);
+            end
+        end % getAnisotropy
         
         function T = getTime(tisArray)
             % Returns a vector of the simulation time contained in

@@ -1,8 +1,34 @@
 classdef Interface
+    %INTERFACE
+    %
+    % Properties:
+    %   ID - key to Map held by Tissue
+    %   lineTension - energy per length (surface tension)
+    %   vIDs - IDs of 2 Vertex objects connected to this Interface
+    %   cIDs - the 2 CellModel objects touching this Interface
+    %   angle - angle of interface w.r.t x-axis
+    %   energy - sigma * length energy contribution of interface
+    %   length - length in microns
+    %
+    % Methods:
+    % --- Constructor ---
+    %   Interface - constructor
+    %
+    % --- Measurements ---
+    %	get_length
+    %   get_angle
+    %   get_energy
+    %   updateInterface - update interface given new Tissue object
+    %
+    % --- Visualize ---
+    %   draw - draw interface arrays as matlab LINE objects
+    %   drawColor - draw colored by energy
+    %
+    % SEE ALSO: Tissue, CellModel, Vertex
     
     properties
         ID
-        tension
+        lineTension
         vIDs
         cIDs
         angle
@@ -23,7 +49,7 @@ classdef Interface
                 % --- Set measurements ---
                 obj.angle = obj.get_angle(tis);
                 obj.length = obj.get_length(tis);
-                obj.tension = 1;
+                obj.lineTension = 1;
             end
         end
         
@@ -45,7 +71,7 @@ classdef Interface
         end
         function E = get_energy(bond,tis)
             % Returns the line tension energy value at this interface
-            E = bond.length * bond.tension / ...
+            E = bond.length * bond.lineTension / ...
                 tis.parameters.forceScale / tis.parameters.lengthScale;
         end
         

@@ -22,11 +22,11 @@ for i = 1:numel(bIDList)
     theta = abs(e.angle);
     % Scale horizontal junctions by factor
     if theta < pi/4 || theta > 3*pi/4
-        e.tension = sigma*a;
+        e.lineTension = sigma*a;
         % set new junctions
         tis.interfaces( bIDList(i) ) = e;
     end
-    new_tensions(i) = e.tension;
+    new_tensions(i) = e.lineTension;
 end
 
 % Update parameter list

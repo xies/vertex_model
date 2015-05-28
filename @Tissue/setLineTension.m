@@ -18,9 +18,9 @@ end
 for i = 1:numel(bIDList)
     e = tis.interfaces( bIDList(i) );
     if isscalar(L)
-        e.tension = L;
+        e.lineTension = L;
     else
-        e.tension = L(i);
+        e.lineTension = L(i);
     end
     tis.interfaces( bIDList(i) ) = e;
 end
