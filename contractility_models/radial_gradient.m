@@ -1,4 +1,5 @@
 function C = radial_gradient(centroids,params)
+%RADIAL_GRADIENT
 
 A = params(1);
 midline_x = params(2);

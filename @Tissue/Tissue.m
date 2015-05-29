@@ -111,7 +111,7 @@ classdef Tissue < handle
         connectivity % adjacency matrix
         interVertDist % dist matrix
         parameters % simulation parameters
-        contractile_params % contraction model + params
+        contractile_params % contraction model + params and temporal model + params
         energy % energy
         t % timestamp
 		t1Time % List of T1 transition times

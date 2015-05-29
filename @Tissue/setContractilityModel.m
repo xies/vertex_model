@@ -11,7 +11,7 @@ function setContractilityModel(tis,modelfun,params,cIDs)
 %                   locations (Nc x 2) and the parameters also
 %                   passed to this function.
 %
-%        params
+%        params - an array of parameters to pass to function
 %
 % Records the modelfun + params in tis.contraction_param
 
@@ -23,7 +23,7 @@ end
 
 % Evaluate modelfun and set the values
 ct = cat(1,cellsOI.centroid);
-C = modelfun(ct,params);
+C = modelfun(ct,tis.t,params);
 tis.setContractility( C,[cellsOI.cellID] );
 tis.deactivateBorder;
 

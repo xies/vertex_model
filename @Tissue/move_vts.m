@@ -81,4 +81,7 @@ end
 % Record energy
 tis.energy = tis.get_energy;
 
+% Update contractility models
+
+
 end % move_vts

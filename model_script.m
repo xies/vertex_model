@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 15;
-HEX_NUM_Y = 15;
+HEX_NUM_X = 8;
+HEX_NUM_Y = 8;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -100,7 +100,7 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
 tic
 
-MODEL_FUN = @gaussian_gradient_variable;
+MODEL_FUN = {@gaussian_gradient_variable};
 CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*1;
 CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
 CONTRACTILE_WIDTH = 20; % pxs
