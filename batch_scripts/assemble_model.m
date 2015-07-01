@@ -19,11 +19,8 @@ ind = 1;
 for i = 1:10:n
     display(['Assembling time = ' num2str(T(i))]);
     tis.move_vts(Y(i,:), T(i));
-    tisArr(ind) = Tissue(tis); % Make shallow copy
+    tisArr(ind) = Tissue(tis); % Make shallow copy of handle
     ind = ind + 1;
-%     if tis.t > 200
-%         break
-%     end
 end
 
 tisArr(isempty(tisArr)) = [];

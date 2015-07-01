@@ -193,7 +193,11 @@ classdef CellModel
             % the binary mask but vertices themselves
             vt = cellm.get_vertices(tis);
             f = fit_ellipse([vt.y],[vt.x]);
-            a = f.short_axis / f.long_axis;
+            if ~isempty(f)
+                a = f.short_axis / f.long_axis;
+            else
+                a = NaN;
+            end
         end % get_anisotropy
         
         function a = get_area(cellm,tis)

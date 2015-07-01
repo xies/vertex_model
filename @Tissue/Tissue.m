@@ -19,6 +19,7 @@ classdef Tissue < handle
     %   Xs - tissue image size
     %   merge_threshold_in_px - merge all vertices closer than this threshold
     %   t - time stamp
+    %   dir - output directory
     %
     % ---- Methods ----
     % 
@@ -117,10 +118,11 @@ classdef Tissue < handle
 		t1Time % List of T1 transition times
 		t1List % list of T1 transition vertices
         
-        % -- Nonchancing settings --
+        % -- Global settings --
         Xs % tissue pixel size
         Ys
         merge_threshold_in_px
+        dir % output directory
         
     end
     methods
@@ -378,7 +380,7 @@ classdef Tissue < handle
         
         % -- set contractility value to active cells only --
         setContractility(tis,C,cIDs)
-        setContractilityModel(tis,modelfun,params,cIDs)
+        setContractilityModel(tis, contractions, cIDs)
         
         function jitterVertices(tis, STD)
             %JITTER_VERTICES

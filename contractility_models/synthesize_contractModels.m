@@ -13,10 +13,10 @@ function C = synthesize_contractModels(ct,t,modelFuns,modelParams)
 % OUTPUT: C - contractility array (same size as ct)
 
 numFcn = numel(modelFuns);
-C = zeros(1,size(ct,1));
+C = zeros(size(ct,1),1);
 for i = 1:numFcn
     p{1} = ct; p{2} = t; p{3} = modelParams{i};
-    C = C + feval( modelFuns{i}, p{:} );
+    C = C + ensure_column( feval( modelFuns{i}, p{:} ) );
 end
 
 end

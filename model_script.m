@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 8;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 5;
+HEX_NUM_Y = 5;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -33,7 +33,7 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 10;
+VISCOSITY_COEFF = 1e2;
 
 JITTERING_STD = 1/10 * l;
 
@@ -43,8 +43,6 @@ JITTERING_STD = 1/10 * l;
 tic
 tis = Tissue(regions,vertex_list,centroid_list,CONNECTIVITY);
 
-clear tissueArray p;
-tissueArray(1:STEPS+1) = Tissue;
 T = toc;
 display(['Tissue initialized in ' num2str(T) ' sec'])
 verts = tis.vert_coords;
@@ -99,29 +97,44 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 %% Set contractility gradient
 
 tic
+% Set salient hyper-parameters
+% spatial
+midline_x = tis.Xs/2; midline_y = tis.Ys/2;
+contMagnitude = tis.parameters.areaElasticity * 1;
+contStd = contMagnitude * 0.1;
+contWidth = 25; % pxs
+% temporal
+increase_per_sec = contMagnitude * 0.0001;
 
-MODEL_FUN = {@gaussian_gradient_variable};
-CONTRACTILITY_MAGNITUDE = tis.parameters.areaElasticity*1;
-CONT_STD = CONTRACTILITY_MAGNITUDE * 0.1;
-CONTRACTILE_WIDTH = 20; % pxs
-ALT_TENSION = 1;
+% Construct model function arrays and parameter arrays for model synthesis
+modelFuns = { @uniform, @white_noise };
+contract_params = { ...
+    [contMagnitude], ... %dv_gradient
+    [contStd 0] ... % white_noise
+    };
+
+% Set the temporal update model(s)
+temporalModel = { @linear_increase };
+temporal_params = { [increase_per_sec 0] };
+
+% Consolidate everything into a structure
+contractions.spatial_model = modelFuns;
+contractions.spatial_params = contract_params;
+contractions.temporal_model = temporalModel;
+contractions.temporal_params = temporal_params;
 
 % Activate "ventral fate"
-box = [ 1/2-1/4 , 1/2-5/6 , 1/2+1/4 , 1/2+5/6 ];
+box = [ 1/2-1/4 , 1/9 , 1/2+1/3 , 9/10 ];
 cIDs = tis.getCellsWithinRegion(box);
-tis.activateCell(cIDs,ALT_TENSION);
+tis.deactivateCell; tis.activateCell(cIDs,1); % alt_tension = 1
 figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
-midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-% contract_params = [CONTRACTILITY_MAGNITUDE , CONT_STD];
-contract_params = [CONTRACTILITY_MAGNITUDE midline_x,...
-    CONTRACTILE_WIDTH CONT_STD];
-tis.setContractilityModel(MODEL_FUN,contract_params);
-C = tis.getContractility;
+tis.setContractilityModel(contractions);
 T = toc;
 display(['Contractility set in ' num2str(T) ' sec'])
 figure(2),tis.draw('showContractile'); title('Contractility')
+tis_init = Tissue(tis);
 
 %% JITTER + Show initial conditions
 

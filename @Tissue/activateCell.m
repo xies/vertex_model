@@ -12,6 +12,7 @@ if nargin < 2,
     cellIDs = tis.cells.keys;
     cellIDs = [cellIDs{:}];
 end
+
 % Activate specified cells
 for i = 1:numel(cellIDs)
     tis.cells( cellIDs(i) ) = ...
@@ -26,7 +27,6 @@ if nargin > 2 % Specified alt tension
         
         c = inactiveCells(i);
         c.areaElasticity = nonActiveKA;
-        %                     edges = tis.getInterfaces( inactiveCells(i).bondIDs );
         tis.cells(c.cellID) = c;
         
     end

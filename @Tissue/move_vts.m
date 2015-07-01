@@ -82,6 +82,8 @@ end
 tis.energy = tis.get_energy;
 
 % Update contractility models
-
+if ~isempty(tis.contractile_params.temporal_model) && new_time ~= 0
+    tis.setContractilityModel;
+end
 
 end % move_vts
