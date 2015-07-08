@@ -33,7 +33,7 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 1e2;
+VISCOSITY_COEFF = 1e1;
 
 JITTERING_STD = 1/10 * l;
 
@@ -97,6 +97,7 @@ display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 %% Set contractility gradient
 
 tic
+
 % Set salient hyper-parameters
 % spatial
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
@@ -104,30 +105,31 @@ contMagnitude = tis.parameters.areaElasticity * 1;
 contStd = contMagnitude * 0.1;
 contWidth = 25; % pxs
 % temporal
-increase_per_sec = contMagnitude * 0.0001;
+increase_per_sec = contMagnitude * 0.01;
+
+% Activate "ventral fate"
+box = [ 1/2-1/4 , 1/9 , 1/2+1/3 , 9/10 ];
+cIDs = tis.getCellsWithinRegion(box);
+tis.deactivateCell; tis.activateCell(cIDs,1); tis.deactivateBorder;
+figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Construct model function arrays and parameter arrays for model synthesis
-modelFuns = { @uniform, @white_noise };
+modelFuns = { @uniform };
 contract_params = { ...
     [contMagnitude], ... %dv_gradient
-    [contStd 0] ... % white_noise
     };
 
 % Set the temporal update model(s)
-temporalModel = { @linear_increase };
-temporal_params = { [increase_per_sec 0] };
+temporalModel = { @time_of_start };
+times_of_start = zeros(1,numel(tis.getActiveCells));
+times_of_start( randi(numel(times_of_start),[1 floor(numel(times_of_start)/2)]) ) = 100;
+temporal_params = { times_of_start };
 
 % Consolidate everything into a structure
 contractions.spatial_model = modelFuns;
 contractions.spatial_params = contract_params;
 contractions.temporal_model = temporalModel;
 contractions.temporal_params = temporal_params;
-
-% Activate "ventral fate"
-box = [ 1/2-1/4 , 1/9 , 1/2+1/3 , 9/10 ];
-cIDs = tis.getCellsWithinRegion(box);
-tis.deactivateCell; tis.activateCell(cIDs,1); % alt_tension = 1
-figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
 % Set the value of contractility in each cell
 tis.setContractilityModel(contractions);
@@ -140,7 +142,7 @@ tis_init = Tissue(tis);
 
 % Add some jitter
 tic
-tis.jitterVertices(JITTERING_STD);
+% tis.jitterVertices(JITTERING_STD);
 num_cells = tis.cells.length;
 
 T = toc;
