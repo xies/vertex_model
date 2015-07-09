@@ -96,7 +96,7 @@ tis.activateCell(cIDs, ...
     contraction.ventral.alt_tension*tis.parameters.areaElasticity);
 % Set the value of contractility in each cell
 tis.setContractilityModel( ...
-    contraction.contractility.model,contraction.contractility.params);
+    contraction);
 T = toc;
 display(['Contractility set in ' num2str(T) ' sec'])
 
