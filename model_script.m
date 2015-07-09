@@ -121,9 +121,7 @@ contract_params = { ...
 
 % Set the temporal update model(s)
 temporalModel = { @time_of_start };
-times_of_start = zeros(1,numel(tis.getActiveCells));
-times_of_start( randi(numel(times_of_start),[1 floor(numel(times_of_start)/2)]) ) = 100;
-temporal_params = { times_of_start };
+temporal_params = { 100 };
 
 % Consolidate everything into a structure
 contractions.spatial_model = modelFuns;
