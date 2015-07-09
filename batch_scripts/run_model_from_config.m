@@ -53,7 +53,7 @@ eval(['contract.contractility.temporal_params = ' ...
     get_field('tempParams') ';']);
 
 % Set the value of contractility in each cell
-tis.setContractilityModel(contractions);
+tis.setContractilityModel(contract);
 
 run_model(initialization,params,contract,OUT_DIR);
 tisArr = assemble_model(OUT_DIR);
