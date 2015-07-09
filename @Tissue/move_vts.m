@@ -82,7 +82,8 @@ end
 tis.energy = tis.get_energy;
 
 % Update contractility models
-if ~isempty(tis.contractile_params.temporal_model) && any(new_time ~= 0)
+if ~isempty(tis.contractile_params.temporal_model) && any(new_time ~= 0) ...
+        && ~strcmpi(new_time,'no_update')
     tis.setContractilityModel;
 end
 
