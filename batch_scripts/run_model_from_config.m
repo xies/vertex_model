@@ -44,13 +44,13 @@ contract.ventral.alt_tension = str2double(get_field('alt_tension'));
 
 % Set the value of contractility in each cell
 eval(['contract.contractility.spatial_model = ' ...
-    get_field('contractSpatialModel') ';']);
+    get_field('contractModel') ';']);
 eval(['contract.contractility.spatial_params = ' ...
     get_field('contractParams') ';']);
 eval(['contract.contractility.temporal_model = ' ...
-    get_field('temporalModel') ';']);
+    get_field('tempModel') ';']);
 eval(['contract.contractility.temporal_params = ' ...
-    get_field('temporal_params') ';']);
+    get_field('tempParams') ';']);
 
 % Set the value of contractility in each cell
 tis.setContractilityModel(contractions);
