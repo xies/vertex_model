@@ -191,13 +191,14 @@ classdef CellModel
             %
             % @todo: Fix this situation where object breaks by not using
             % the binary mask but vertices themselves
-            vt = cellm.get_vertices(tis);
-            f = fit_ellipse([vt.y],[vt.x]);
-            if ~isempty(f)
-                a = f.short_axis / f.long_axis;
-            else
-                a = NaN;
-            end
+            a = 1;
+%             vt = cellm.get_vertices(tis);
+%             f = fit_ellipse([vt.y],[vt.x]);
+%             if ~isempty(f)
+%                 a = f.short_axis / f.long_axis;
+%             else
+%                 a = NaN;
+%             end
         end % get_anisotropy
         
         function a = get_area(cellm,tis)

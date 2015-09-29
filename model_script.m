@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 5;
-HEX_NUM_Y = 5;
+HEX_NUM_X = 8;
+HEX_NUM_Y = 8;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -33,7 +33,7 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 1e1;
+VISCOSITY_COEFF = 2e1;
 
 JITTERING_STD = 1/10 * l;
 
@@ -86,7 +86,7 @@ else
         'jitterSize', JITTERING_STD, ...
         'um_per_px', um_per_px, ...
         'dt_per_frame', 0.01, ...
-        't1Threshold',2 ...
+        't1Threshold',0 ...
         };
 end
 
@@ -101,7 +101,7 @@ tic
 % Set salient hyper-parameters
 % spatial
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-contMagnitude = tis.parameters.areaElasticity * 1;
+contMagnitude = tis.parameters.areaElasticity * 10;
 contStd = contMagnitude * 0.1;
 contWidth = 25; % pxs
 % temporal
@@ -120,8 +120,8 @@ contract_params = { ...
     };
 
 % Set the temporal update model(s)
-temporalModel = { @time_of_start };
-temporal_params = { 100 };
+temporalModel = { @random_walk };
+temporal_params = { contMagnitude * .01 };
 
 % Consolidate everything into a structure
 contractions.spatial_model = modelFuns;
