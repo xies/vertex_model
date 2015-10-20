@@ -1,4 +1,4 @@
-function tisArr = assemble_model(DIR)
+function tisArr = assemble_model(DIR,max_time)
 %ASSEMBLE_MODEL
 % Loads all .mat files (of Tissues) within a single directory and assemble
 % into a tissue array. And then sort tissueArray by time stamp.
@@ -10,6 +10,10 @@ T = csvread([DIR '/times.csv']);
 Y = csvread([DIR '/vertices.csv']);
 tis = load([DIR '/model_t_0.mat']);
 tis = tis.tis;
+
+if nargin > 1,
+    T = T(T < max_time);
+end
 
 n = numel(T);
 % Preallocate

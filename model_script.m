@@ -102,10 +102,8 @@ tic
 % spatial
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
 contMagnitude = tis.parameters.areaElasticity * 10;
-contStd = contMagnitude * 0.1;
-contWidth = 25; % pxs
 % temporal
-increase_per_sec = contMagnitude * 0.01;
+increase_per_sec = contMagnitude * 1;
 
 % Activate "ventral fate"
 box = [ 1/2-1/4 , 1/9 , 1/2+1/3 , 9/10 ];
@@ -113,15 +111,16 @@ cIDs = tis.getCellsWithinRegion(box);
 tis.deactivateCell; tis.activateCell(cIDs,1); tis.deactivateBorder;
 figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
-% Construct model function arrays and parameter arrays for model synthesis
+% Construct spatial model function(s)
+% and parameter arrays for model synthesis
 modelFuns = { @uniform };
 contract_params = { ...
-    [contMagnitude], ... %dv_gradient
+    [contMagnitude], ... % constant
     };
 
 % Set the temporal update model(s)
-temporalModel = { @random_walk };
-temporal_params = { contMagnitude * .01 };
+temporalModel = { @linear_increase, @time_of_start };
+temporal_params = { [increase_per_sec 0] , increase_per_sec / 100 };
 
 % Consolidate everything into a structure
 contractions.spatial_model = modelFuns;

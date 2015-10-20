@@ -222,14 +222,6 @@ classdef Tissue < handle
         function flags = isempty(tisArr)
             flags = false(1,numel(tisArr));
             flags = flags | cellfun(@isempty,{tisArr.cells});
-%                 flag = 1; return;
-%             end
-%             if tis.vertices.length == 0,
-%                 flag = 1; return;
-%             end
-%             if tis.interfaces.length == 0,
-%                 flag = 1; return;
-%             end
         end
         
         % ------  Calculate energy, force ------
