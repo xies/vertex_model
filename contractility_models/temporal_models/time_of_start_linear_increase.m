@@ -9,11 +9,10 @@ function C = time_of_start_linear_increase( tis, params )
 p = zeros(1,numel(tis.getActiveCells));
 p( params{1} ) = params{2};
 
-C = max( tis.contractile_params.initC + ...
-    params{3} * tis.t, ...
-    0);
+C = tis.contractile_params.initC + ...
+    params{3} * tis.t;
 
-% C = ones(1,numel(C)) * max(C); % HACK!
-C( tis.t < p ) = 0;
+C( p ) = C( p ) - params{2}*params{3};
+C = max(C,0);
 
 end
