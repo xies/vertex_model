@@ -13,7 +13,7 @@ classdef Tissue < handle
     %   interVertDist - Nv x Nv distance matrix of connected vertices
     %
     %   parameters - see setParameters for details
-    %   contraction_param - contractile parameters
+    %   contractile_params - contractile parameters for active cells only
     %
     %   Ys - tissue image size (for display and initiation only)
     %   Xs - tissue image size

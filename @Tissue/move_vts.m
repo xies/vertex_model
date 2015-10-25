@@ -7,7 +7,7 @@ function move_vts(tis, new_vcoords, new_time, varargin)
 %
 % USAGE: tissue.move_vts( new_vcoords );
 %        tissue.move_vts( new_vcoords ,'no_update');
-% 
+%
 
 % RESHAPE new_coords if called from an ODE solver
 if isvector(new_vcoords)
@@ -82,9 +82,11 @@ end
 tis.energy = tis.get_energy;
 
 % Update contractility models
-if ~isempty(tis.contractile_params.temporal_model) && any(new_time ~= 0) ...
-        && ~strcmpi(new_time,'no_update')
-    tis.setContractilityModel;
+if ~isempty(tis.contractile_params)
+    if ~isempty(tis.contractile_params.temporal_model) && any(new_time ~= 0) ...
+            && ~strcmpi(new_time,'no_update')
+        tis.setContractilityModel;
+    end
 end
 
 end % move_vts
