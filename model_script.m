@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 8;
-HEX_NUM_Y = 8;
+HEX_NUM_X = 5;
+HEX_NUM_Y = 5;
 hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 [centroid_list,regions] = get_cents(hexagons);
 [vertex_list] = get_vertices(hexagons);
@@ -33,7 +33,7 @@ CONNECTIVITY = 'purse string';
 STEPS = 1000; % number of constriction steps
 abs_tol = 1e-2; rel_tol = 1e-9;
 TIME_STEP = 1e-8;
-VISCOSITY_COEFF = 2e1;
+VISCOSITY_COEFF = 1e3;
 
 JITTERING_STD = 1/10 * l;
 
@@ -94,16 +94,16 @@ tis.setParameters(param_config{:}); % set parameters
 T = toc;
 display(['Parameter and connection matrices initialized in ' num2str(T) ' sec'])
 
-%% Set contractility gradient
+%% Set ventral fate
 
 tic
 
 % Set salient hyper-parameters
 % spatial
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-contMagnitude = tis.parameters.areaElasticity * 10;
+contMagnitude = tis.parameters.areaElasticity * 0;
 % temporal
-increase_per_sec = contMagnitude * 1;
+increase_per_sec = tis.parameters.areaElasticity * 1e-3;
 
 % Activate "ventral fate"
 box = [ 1/2-1/4 , 1/9 , 1/2+1/3 , 9/10 ];
@@ -111,7 +111,7 @@ cIDs = tis.getCellsWithinRegion(box);
 tis.deactivateCell; tis.activateCell(cIDs,1); tis.deactivateBorder;
 figure(1),tis.draw('showActive'); title('Ventral fated cells')
 
-% Construct spatial model function(s)
+%% Construct spatial model function(s)
 % and parameter arrays for model synthesis
 modelFuns = { @uniform };
 contract_params = { ...
@@ -119,8 +119,8 @@ contract_params = { ...
     };
 
 % Set the temporal update model(s)
-temporalModel = { @linear_increase, @time_of_start };
-temporal_params = { [increase_per_sec 0] , increase_per_sec / 100 };
+temporalModel = { @time_of_start_linear_increase @random_walk };
+temporal_params = { {[1 3], 5, increase_per_sec} increase_per_sec/100 };
 
 % Consolidate everything into a structure
 contractions.spatial_model = modelFuns;

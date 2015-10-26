@@ -3,6 +3,6 @@ function C = random_walk( tis, params )
 
 C = [tis.getActiveCells.contractility];
 
-C = C + params(1) * randn(size(C));
+C = params(1) * randn(size(C));
 
 end
