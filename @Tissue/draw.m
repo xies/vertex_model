@@ -72,7 +72,7 @@ if ~isempty(ind)
     I = I + M * 50;
 end
 
-hold off, imagesc(I), axis equal;
+hold off, imagesc(I), axis equal; colormap hot, colorbar hot, caxis([0 255])
 %             hold off, imagesc(y_axis,x_axis,I), axis equal;
 hold on, tis.getInterfaces.draw(tis);
 

@@ -1,4 +1,3 @@
-
 function make_vertices(tis, regions)
 % Checks if vertices are not beyond image border, touching at
 % least one cell, and return which cells a vertex is touching

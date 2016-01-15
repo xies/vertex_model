@@ -8,9 +8,12 @@ HEX_ANGLE = 'diagonal';
 
 HEX_NUM_X = 5;
 HEX_NUM_Y = 5;
-hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
-[centroid_list,regions] = get_cents(hexagons);
-[vertex_list] = get_vertices(hexagons);
+% hexagons = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
+
+[centroid_list,vertex_list,regions] = ...
+    create_random_grid(25,10);
+% [centroid_list] = get_cents(regions);
+% [vertex_list] = get_vertices(regions);
 
 %Approx run times for different dimentions for 4 steps
 % 48 by 16 - 70s initialize; 20s / step

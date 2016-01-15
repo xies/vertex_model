@@ -81,6 +81,7 @@ classdef Tissue < handle
     %          cells
     %       setAreaElasticity - set area elasticity to specified cells
     %       setTargetArea - set target area to specified cells
+    %       dilateCell - dilate cell area
     %
     %   --- Interface handling ---
     %       setLineTension - set line tension
@@ -536,6 +537,8 @@ classdef Tissue < handle
         setTargetArea(tis,cIDs,alt_area)
         setAreaElasticity(tis,cIDs,alt_ka)
         setPerimElasticity(tis,cIDs,alt_kp)
+        
+        dilateCell(tis,cIDs,scale)
         
         % ----- Interface handling ----
         

@@ -191,7 +191,7 @@ classdef Vertex
         function line( vArray, color)
             % Draw lines between vertices using LINE.
             if nargin < 2
-                color = [0 0 1];
+                color = [1 1 1];
             end
             x = [vArray.x]; y = [vArray.y];
             line( y, x, 'Color', color);
