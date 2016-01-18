@@ -55,7 +55,7 @@ end
 q = zeros(imgsz);
 for i=0:1:2
     q(round(imgsz/2+1+rr*sin(2*pi/3*i+rot)), ...
-        round(imgsz/2+1+rr*cos(2*pi/3*i+rot)) + (50 - 50*i))=1;
+        round(imgsz/2+1+rr*cos(2*pi/3*i+rot)))=1;
 end
 %
 % inverse fourier transform
