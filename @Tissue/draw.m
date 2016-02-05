@@ -23,6 +23,7 @@ if numel(tis) > 1, error('Can only handle single tissue; use tis.movie() to show
 %             y_axis = ((1:tis.Ys) - tis.Ys/2) * um_per_px;
 
 I = zeros(tis.Xs,tis.Ys);
+clims = [0 255];
 imagesc(I)
 %             cellIDList = tis.cells.keys();
 %             for i = 1:numel(cellIDList)
@@ -42,10 +43,8 @@ if any(strcmpi(varargin, 'showActive'))
     end
     M = M * 50;
     I = I + M;
-end
-
-% Highlight active cells
-if any(strcmpi(varargin, 'showContractile'))
+    
+elseif any(strcmpi(varargin, 'showContractile')) % Highlight active cells
     % Show active cells as filled-ins, with value proportional
     % to contractility
     M = zeros(tis.Xs,tis.Ys);
@@ -58,21 +57,22 @@ if any(strcmpi(varargin, 'showContractile'))
             Acells(i).contractility * 150 / cmax;
     end
     I = I + M;
-end
-
-% Highlight specific cells
-ind = find( strcmpi(varargin,'showCellID') );
-if ~isempty(ind)
+    
+% elseif any(strcmpi(varargin, 'showMeasurement')
+%     % Show given 
+elseif any(strcmpi(varargin, 'showCellID')) % Highlight specific cells
+    ind = find( strcmpi(varargin,'showCellID') );
     M = zeros(tis.Xs,tis.Ys);
     IDs = varargin{ind+1};
     Acells = tis.getCells(IDs);
     for i = 1:numel(Acells)
-        M = M + Acells(i).drawMask(tis);
+        M = M + Acells(i).drawMask(tis) * varargin{ind+2}(i);
     end
-    I = I + M * 50;
+    I = I + M;
+    clims = [min(varargin{ind+2}) max(varargin{ind+2})];
 end
 
-hold off, imagesc(I), axis equal; colormap hot, colorbar hot, caxis([0 255])
+hold off, imagesc(I), axis equal; colormap hot, colorbar hot, caxis(clims)
 %             hold off, imagesc(y_axis,x_axis,I), axis equal;
 hold on, tis.getInterfaces.draw(tis);
 

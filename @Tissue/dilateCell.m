@@ -8,6 +8,7 @@ function dilateCell(tis,cIDs,scale)
 
 num_cells = numel(cIDs);
 
+% Loop through every cell in order
 for i = 1:num_cells
     cell = tis.getCells( cIDs );
     vts = tis.getVertices( cell.vIDs );
@@ -17,10 +18,13 @@ for i = 1:num_cells
     new_vx = (vx - cell.centroid(1)) * scale + cell.centroid(1);
     new_vy = (vy - cell.centroid(2)) * scale + cell.centroid(2);
     
+    % Use moveVertex
     for j = 1:numel(cell.vIDs)
         tis.moveVertex( cell.vIDs(j), [new_vx(j), new_vy(j)] );
     end
     
 end
+
+tis.move_vts(tis.vert_coords, 'no_update');
 
 end

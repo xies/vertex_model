@@ -351,6 +351,7 @@ classdef Tissue < handle
         move_vts(tis, new_vcoords, new_time, varargin)
         setParameters(tis,varargin)
         t1Transition(tis,vt);
+        moveVertex(tis,vID,new_coord);
         
         function updateVertCoords(tis)
             % If you move a vertex without moving vert_coords explicitly,
@@ -358,12 +359,6 @@ classdef Tissue < handle
             v = tis.getVertices;
             vx = [v.x]; vy = [v.y];
             tis.vert_coords = cat(2,vx',vy');
-        end
-        
-        function moveVertex(tis,vID,new_coord)
-            % Move a single vertex
-            tis.vertices(vID) = tis.vertices(vID).move(new_coord);
-            tis.updateVertCoords;
         end
         
         % -- Activate cell (mark as "ventral") --

@@ -6,8 +6,8 @@ clc
 % HEX_ANGLE = 'vertical';
 HEX_ANGLE = 'diagonal';
 
-HEX_NUM_X = 4;
-HEX_NUM_Y = 4;
+HEX_NUM_X = 12;
+HEX_NUM_Y = 12;
 hexagon = create_hexagons(HEX_ANGLE,HEX_NUM_X, HEX_NUM_Y);
 
 % [centroid_list,vertex_list,regions] = ...
@@ -104,7 +104,7 @@ tic
 % Set salient hyper-parameters
 % spatial
 midline_x = tis.Xs/2; midline_y = tis.Ys/2;
-contMagnitude = tis.parameters.areaElasticity * 0;
+contMagnitude = tis.parameters.areaElasticity * 1;
 % temporal
 increase_per_sec = tis.parameters.areaElasticity * 1e-3;
 
