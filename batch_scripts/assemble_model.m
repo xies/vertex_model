@@ -29,13 +29,14 @@ end
 
 tisArr(isempty(tisArr)) = [];
 
-% IDs = [tisArr.getCells.cellID];
+IDs = [tisArr.getActiveCells.cellID];
 % t = tisArr.getTime;
 A = tisArr.getArea;
 C = tisArr.getContractility;
 
 csvwrite([DIR '/area.csv'],A);
 csvwrite([DIR '/contractility.csv'],C);
+csvwrite([DIR '/active_cells.csv'],IDs);
 
 save('-v7.3',[DIR '/model.mat'],'tisArr');
 display(['Model assembled at: ' DIR '/model.mat']);
