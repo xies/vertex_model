@@ -29,7 +29,7 @@ end
 
 tisArr(isempty(tisArr)) = [];
 
-IDs = [tisArr.getActiveCells.cellID];
+IDs = [tisArr(1).getActiveCells.cellID];
 % t = tisArr.getTime;
 A = tisArr.getArea;
 C = tisArr.getContractility;
