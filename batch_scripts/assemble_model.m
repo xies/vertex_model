@@ -30,10 +30,11 @@ end
 tisArr(isempty(tisArr)) = [];
 
 IDs = [tisArr(1).getActiveCells.cellID];
-% t = tisArr.getTime;
+t = tisArr.getTime;
 A = tisArr.getArea;
 C = tisArr.getContractility;
 
+csvwrite([DIR '/assembled_time.csv'],t);
 csvwrite([DIR '/area.csv'],A);
 csvwrite([DIR '/contractility.csv'],C);
 csvwrite([DIR '/active_cells.csv'],IDs);
